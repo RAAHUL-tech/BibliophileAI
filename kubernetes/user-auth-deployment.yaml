@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-auth-deployment
+spec:
+  selector:
+    matchLabels:
+      app: user-auth
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: user-auth
+    spec:
+      containers:
+      - name: user-auth
+        image: rahulkrish28/user-auth-service:latest
+    
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          value: postgresql://user:123456@postgres-service:5432/userdb
+        - name: SECRET_KEY
+          value: your-secret-key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-auth-service
+spec:
+  selector:
+    app: user-auth
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: ClusterIP
