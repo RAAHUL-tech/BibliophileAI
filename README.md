@@ -10,6 +10,7 @@ A scalable, microservices-based platform for personalized book recommendations u
 - [Project Architecture](#project-architecture)
 - [Features](#features)
 - [Technology Stack](#technology-stack)
+- [Architecture](#architecture)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Project Structure](#project-structure)
@@ -56,6 +57,10 @@ This project delivers personalized book recommendations powered by classical, ne
 - PostgreSQL, MongoDB, Redis
 - Node.js, React
 - Prometheus, Grafana
+
+---
+## Architecture
+<img width="2582" height="1224" alt="image" src="https://github.com/user-attachments/assets/b7a5677d-40d4-4faf-8653-c1d7e6355c37" />
 
 ---
 
