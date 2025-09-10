@@ -66,3 +66,19 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+.blur-sm {
+  filter: blur(4px) grayscale(30%);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+@media (max-width: 767px) {
+  .card {
+    max-width: 99vw !important;
+  }
+  .col-md-6 {
+    max-width: 100% !important;
+  }
+}
+

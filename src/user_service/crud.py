@@ -17,3 +17,17 @@ def create_user(db: Session, user: schemas.UserCreate):
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
+
+def get_user_by_email(db: Session, email: str):
+    return db.query(models.User).filter(models.User.email == email).first()
+
+def create_user_with_google(db: Session, user_in: schemas.UserCreate):
+    db_user = models.User(
+        username=user_in.username,
+        email=user_in.email,
+        hashed_password=None  
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
