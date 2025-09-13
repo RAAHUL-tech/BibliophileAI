@@ -1,14 +1,20 @@
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import FastAPI, Depends, HTTPException, status, Security
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from fastapi.logger import logger
 from sqlalchemy.orm import Session
 import models, schemas, crud, database, auth
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
+from typing import List
+from jose import JWTError, jwt
+import os
 
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+SECRET_KEY = os.getenv("SECRET_KEY")
 
-GOOGLE_CLIENT_ID = "1080082180665-ucov4mb745ktpb8jqu8kivrg4h5bb4mb.apps.googleusercontent.com"
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 models.Base.metadata.create_all(bind=database.engine)
 
@@ -29,12 +35,37 @@ def get_db():
     finally:
         db.close()
 
-@app.post("/register", response_model=schemas.UserResponse)
+ALGORITHM = "HS256"
+
+def get_current_user(token: str = Security(oauth2_scheme), db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    user = crud.get_user_by_username(db, username)
+    if user is None:
+        raise credentials_exception
+    return user
+
+@app.post("/register")
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db_user = crud.get_user_by_username(db, user.username)
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
-    return crud.create_user(db, user)
+    user = crud.create_user(db, user)
+
+    # Generate access token for new user (like in google-register)
+    access_token = auth.create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
+
 
 @app.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
@@ -48,28 +79,24 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 class GoogleToken(BaseModel):
     credential: str
 
-@app.post("/google-register", response_model=schemas.UserResponse)
+@app.post("/google-register")
 def google_register(token: GoogleToken, db: Session = Depends(get_db)):
     try:
-        # Verify token with Google
         idinfo = id_token.verify_oauth2_token(token.credential, google_requests.Request(), GOOGLE_CLIENT_ID)
-
-        # Get user info from token payload
         email = idinfo.get("email")
         name = idinfo.get("name", email.split("@")[0])
-        
         if not email:
             raise HTTPException(status_code=400, detail="Google token missing email")
-
-        # Check if user exists
         db_user = crud.get_user_by_email(db, email)
         if db_user:
             raise HTTPException(status_code=400, detail="User already registered")
 
-        # Create new user (you'll want to define create_user_with_google or adapt existing)
-        user_in = schemas.UserCreate(username=name, email=email, password=None)  # pw can be null or random
+        user_in = schemas.UserCreate(username=name, email=email, password=None)
         user = crud.create_user_with_google(db, user_in)
-        return user
+
+        # Create JWT token on registration
+        access_token = auth.create_access_token(data={"sub": user.username})
+        return {"access_token": access_token, "token_type": "bearer"}
 
     except ValueError as ex:
         print("Google token error:", ex)
@@ -93,3 +120,38 @@ def google_login(token: GoogleToken, db: Session = Depends(get_db)):
 
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid Google token")
+    
+
+class GenresIn(BaseModel):
+    genres: List[str]
+
+
+@app.post("/user/preferences", response_model=schemas.UserPreferencesResponse)
+def save_preferences(prefs_in: GenresIn, db: Session=Depends(get_db), current_user: models.User=Depends(get_current_user)):
+    prefs = crud.create_or_update_preferences(db, current_user.id, prefs_in.genres)
+    genres_list = prefs.genres.split(",") if prefs.genres else []
+    return schemas.UserPreferencesResponse(
+        id=prefs.id,
+        user_id=current_user.id,
+        genres=genres_list
+    )
+
+
+@app.get("/user/preferences", response_model=schemas.UserPreferencesResponse)
+def get_preferences(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    prefs = crud.get_preferences_by_user_id(db, current_user.id)
+    if not prefs:
+        return schemas.UserPreferencesResponse(id=0, user_id=current_user.id, genres=[])
+    genres_list = prefs.genres.split(",") if prefs.genres else []
+    return schemas.UserPreferencesResponse(
+        id=prefs.id,
+        user_id=current_user.id,
+        genres=genres_list
+    )
+
+@app.get("/user/profile")
+def get_user_profile(current_user: models.User = Depends(get_current_user)):
+    return {
+        "username": current_user.username,
+        "email": current_user.email
+    }

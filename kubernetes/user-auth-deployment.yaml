@@ -15,14 +15,24 @@ spec:
       containers:
       - name: user-auth
         image: rahulkrish28/user-auth-service:latest
-    
         ports:
         - containerPort: 8000
         env:
-        - name: DATABASE_URL
-          value: postgresql://user:123456@postgres-service:5432/userdb
         - name: SECRET_KEY
-          value: your-secret-key
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: SECRET_KEY
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: DATABASE_URL
+        - name: GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: GOOGLE_CLIENT_ID
 ---
 apiVersion: v1
 kind: Service
