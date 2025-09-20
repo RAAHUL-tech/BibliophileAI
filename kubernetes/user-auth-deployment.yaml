@@ -23,11 +23,16 @@ spec:
             secretKeyRef:
               name: secret
               key: SECRET_KEY
-        - name: DATABASE_URL
+        - name: SUPABASE_URL
           valueFrom:
             secretKeyRef:
               name: secret
-              key: DATABASE_URL
+              key: SUPABASE_URL
+        - name: SUPABASE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: SUPABASE_KEY
         - name: GOOGLE_CLIENT_ID
           valueFrom:
             secretKeyRef:

@@ -1,6 +1,5 @@
 import { useState, useEffect, type FC } from "react"
 import { Dropdown, Navbar, Container, Nav } from "react-bootstrap"
-import Preferences from "./Preferences"
 import Profile from "./Profile"
 import UpdatePreferences from "./UpdatePreferences"
 import { FaUser, FaHeart, FaSignOutAlt } from "react-icons/fa"
