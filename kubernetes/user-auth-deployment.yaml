@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-auth-deployment
+spec:
+  selector:
+    matchLabels:
+      app: user-auth
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: user-auth
+    spec:
+      containers:
+      - name: user-auth
+        image: rahulkrish28/user-auth-service:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: SECRET_KEY
+        - name: SUPABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: SUPABASE_URL
+        - name: SUPABASE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: SUPABASE_KEY
+        - name: GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: GOOGLE_CLIENT_ID
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-auth-service
+spec:
+  selector:
+    app: user-auth
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: ClusterIP

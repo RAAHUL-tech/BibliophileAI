@@ -58,3 +58,8 @@ models/
 *.bak
 *.tmp
 *.out
+
+
+# Ignore secrets files
+kubernetes/secrets.yaml
+frontend/bibliophile-ai-frontend/.env

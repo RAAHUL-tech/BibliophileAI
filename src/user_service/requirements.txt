@@ -1,0 +1,10 @@
+fastapi
+requests
+uvicorn[standard]
+psycopg2-binary
+SQLAlchemy
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart
+google-auth
+httpx
