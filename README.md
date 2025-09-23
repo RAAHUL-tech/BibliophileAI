@@ -32,7 +32,7 @@ BibliophileAI is a production-ready recommendation system that combines classica
 ## 🏗️ System Architecture
 
 <div align="center">
-  <img width="100%" alt="BibliophileAI Architecture Diagram" src="https://github.com/user-attachments/assets/b7a5677d-40d4-4faf-8653-c1d7e6355c37" />
+  <img width="100%" alt="BibliophileAI Architecture Diagram" src="https://github.com/user-attachments/assets/bb2d2a75-ab76-4d4d-a76c-a616e24322a8" />
 </div>
 
 ---
