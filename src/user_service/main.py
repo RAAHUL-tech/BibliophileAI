@@ -14,11 +14,12 @@ from supabase_client import (
     get_preferences_by_user_id
 )
 from auth import create_access_token, decode_access_token
-
+import hashlib
+from user_embeddings import create_user_embedding_vectors
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 app = FastAPI()
 
@@ -45,12 +46,18 @@ async def get_current_user(token: str = Security(oauth2_scheme)):
         raise credentials_exception
     return user
 
+def prehash_password(password: str) -> str:
+    # Pre-hash full password using SHA-256 then hex encode to a string
+    sha256_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+    return sha256_hash
+
 @app.post("/register")
 async def register(user: UserCreate):
     existing_user = await get_user_by_username(user.username)
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already registered")
-    hashed_password = pwd_context.hash(user.password)
+    safe_password = prehash_password(user.password)
+    hashed_password = pwd_context.hash(safe_password)
     user_data = {"username": user.username, "email": user.email, "hashed_password": hashed_password}
     new_user = await create_user(user_data)
     access_token = create_access_token(data={"sub": new_user})
@@ -61,7 +68,8 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     user = await get_user_by_username(form_data.username)
     if not user or not user.get("hashed_password"):
         raise HTTPException(status_code=401, detail="Incorrect username or password")
-    if not pwd_context.verify(form_data.password, user["hashed_password"]):
+    safe_password = prehash_password(form_data.password)
+    if not pwd_context.verify(safe_password, user["hashed_password"]):
         raise HTTPException(status_code=401, detail="Incorrect username or password")
     access_token = create_access_token(data={"sub": user["username"]})
     return {"access_token": access_token, "token_type": "bearer"}
@@ -104,10 +112,21 @@ async def google_login(token: GoogleToken):
 @app.post("/user/preferences")
 async def save_preferences(prefs_in: GenresIn, current_user=Depends(get_current_user)):
     prefs = await create_or_update_preferences(current_user["id"], prefs_in.genres)
+    
+    if prefs is None:
+        genres_list = list(prefs_in.genres) if isinstance(prefs_in.genres, (list, tuple)) else []
+    else:
+        genres_list = prefs.get("genres", "").split(",") if prefs.get("genres") else []
+    
+    try:
+        await create_user_embedding_vectors(current_user["id"], genres_list)
+    except Exception as e:
+        print(f"Error creating embedding for user {current_user['id']}: {e}")
+    
     if not prefs:
-        return {"id": current_user["id"], "user_id": current_user["id"], "genres": []}
-    genres_list = prefs.get("genres", "").split(",") if prefs.get("genres") else []
-    return {"id": prefs["id"], "user_id": current_user["id"], "genres": genres_list}
+        return {"id": current_user["id"], "user_id": current_user["id"], "genres": genres_list}
+    else:
+        return {"id": prefs["id"], "user_id": current_user["id"], "genres": genres_list}
 
 @app.get("/user/preferences")
 async def get_preferences(current_user=Depends(get_current_user)):
