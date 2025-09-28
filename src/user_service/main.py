@@ -14,12 +14,12 @@ from supabase_client import (
     get_preferences_by_user_id
 )
 from auth import create_access_token, decode_access_token
+import hashlib
 from user_embeddings import create_user_embedding_vectors
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-MAX_BCRYPT_BYTES = 72
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 app = FastAPI()
 
@@ -46,16 +46,17 @@ async def get_current_user(token: str = Security(oauth2_scheme)):
         raise credentials_exception
     return user
 
-def truncate_password(password: str) -> str:
-    encoded = password.encode('utf-8')[:MAX_BCRYPT_BYTES]
-    return encoded.decode('utf-8', errors='ignore')
+def prehash_password(password: str) -> str:
+    # Pre-hash full password using SHA-256 then hex encode to a string
+    sha256_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+    return sha256_hash
 
 @app.post("/register")
 async def register(user: UserCreate):
     existing_user = await get_user_by_username(user.username)
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already registered")
-    safe_password = truncate_password(user.password)
+    safe_password = prehash_password(user.password)
     hashed_password = pwd_context.hash(safe_password)
     user_data = {"username": user.username, "email": user.email, "hashed_password": hashed_password}
     new_user = await create_user(user_data)
@@ -67,7 +68,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     user = await get_user_by_username(form_data.username)
     if not user or not user.get("hashed_password"):
         raise HTTPException(status_code=401, detail="Incorrect username or password")
-    safe_password = truncate_password(form_data.password)
+    safe_password = prehash_password(form_data.password)
     if not pwd_context.verify(safe_password, user["hashed_password"]):
         raise HTTPException(status_code=401, detail="Incorrect username or password")
     access_token = create_access_token(data={"sub": user["username"]})

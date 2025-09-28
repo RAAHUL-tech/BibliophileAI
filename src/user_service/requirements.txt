@@ -3,9 +3,10 @@ requests
 uvicorn[standard]
 psycopg2-binary
 SQLAlchemy
-passlib[bcrypt]
 python-jose[cryptography]
 python-multipart
 google-auth
 httpx
 pinecone
+passlib[argon2]
+argon2-cffi
