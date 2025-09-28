@@ -38,6 +38,11 @@ spec:
             secretKeyRef:
               name: secret
               key: GOOGLE_CLIENT_ID
+        - name: PINECONE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: PINECONE_API_KEY
 ---
 apiVersion: v1
 kind: Service
