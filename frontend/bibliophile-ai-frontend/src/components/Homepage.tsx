@@ -1,8 +1,17 @@
 import { useState, useEffect, type FC } from "react"
-import { Dropdown, Navbar, Container, Nav } from "react-bootstrap"
+import { Dropdown, Navbar, Container, Nav, Spinner, Alert } from "react-bootstrap"
 import Profile from "./Profile"
 import UpdatePreferences from "./UpdatePreferences"
 import { FaUser, FaHeart, FaSignOutAlt } from "react-icons/fa"
+
+interface BookRecommendation {
+  id: string
+  title: string
+  authors: string[]
+  categories: string[]
+  thumbnail_url?: string
+  download_links?: string
+}
 
 interface HomepageProps {
   token: string
@@ -14,6 +23,33 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
   const [view, setView] = useState<"none" | "profile" | "preferences">("none")
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
+  const [recommendations, setRecommendations] = useState<BookRecommendation[]>([])
+  const [loadingRecs, setLoadingRecs] = useState<boolean>(true)
+  const [recsError, setRecsError] = useState<string | null>(null)
+
+  // Fetch recommendations on first load
+  useEffect(() => {
+    setLoadingRecs(true)
+    setRecsError(null)
+    const fetchRecs = async () => {
+      try {
+        const res = await fetch("http://localhost:8001/recommend", {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setRecommendations(data.recommendations || [])
+        } else {
+          setRecsError("Failed to load recommendations")
+        }
+      } catch {
+        setRecsError("Network error while loading recommendations")
+      } finally {
+        setLoadingRecs(false)
+      }
+    }
+    fetchRecs()
+  }, [token])
 
   // Fetch preferences when opening preferences view
   useEffect(() => {
@@ -113,7 +149,42 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
             onCancel={() => setView("none")}
           />
         )}
-        {/* No content if view === "none" */}
+        {view === "none" && (
+          <>
+            {loadingRecs ? (
+              <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "60vh" }}>
+                <Spinner animation="border" role="status" />
+                <span className="ms-3">Loading recommendations...</span>
+              </div>
+            ) : recsError ? (
+              <Alert variant="danger">{recsError}</Alert>
+            ) : (
+              <div>
+                <h2>Recommended for you</h2>
+                <div className="row">
+                  {recommendations.map(book => (
+                    <div key={book.id} className="col-md-4 col-lg-3 mb-4">
+                      <div className="card h-100">
+                        {book.thumbnail_url && (
+                          <img src={book.thumbnail_url} className="card-img-top" alt={book.title} />
+                        )}
+                        <div className="card-body">
+                          <h5 className="card-title">{book.title}</h5>
+                          <p className="card-text">
+                            {book.authors && book.authors.join(", ")}
+                          </p>
+                          <p className="card-text">
+                            {book.categories && book.categories.join(", ")}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </>
   )
