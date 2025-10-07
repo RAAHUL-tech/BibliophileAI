@@ -12,7 +12,7 @@ interface UpdatePreferencesProps {
   onCancel: () => void
 }
 
-export default function UpdatePreferences({
+export default function UpdateGenrePreferences({
   initialGenres, loading, onSave, onCancel
 }: UpdatePreferencesProps) {
   const [selected, setSelected] = useState<string[]>(initialGenres)

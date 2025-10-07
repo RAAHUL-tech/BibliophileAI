@@ -8,6 +8,8 @@ interface ProfileProps {
 interface UserProfile {
   username: string
   email: string
+  age: number | null
+  pincode: string | null
 }
 
 export default function Profile({ token, onClose }: ProfileProps) {
@@ -52,6 +54,8 @@ export default function Profile({ token, onClose }: ProfileProps) {
             <>
               <p><b>Name:</b> {profile.username}</p>
               <p><b>Email:</b> {profile.email}</p>
+              <p><b>Age:</b> {profile.age || 'Not specified'}</p>
+              <p><b>Pincode:</b> {profile.pincode || 'Not specified'}</p>
             </>
           ) : (
             <p className="text-warning">No profile data.</p>

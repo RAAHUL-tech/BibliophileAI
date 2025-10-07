@@ -27,17 +27,17 @@ const genreEmojis: { [key: string]: string } = {
   "Biography": "👤",
 }
 
-type PreferencesProps = {
+type PreferencesGenreProps = {
   initialSelectedGenres?: string[]
   onSave: (genres: string[]) => void
   loading?: boolean
 }
 
-export default function Preferences({
+export default function PreferencesGenre({
   initialSelectedGenres = [],
   onSave,
   loading = false,
-}: PreferencesProps) {
+}: PreferencesGenreProps) {
   const [selectedGenres, setSelectedGenres] = useState<string[]>(initialSelectedGenres)
 
   const toggleGenre = (genre: string) => {

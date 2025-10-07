@@ -1,8 +1,10 @@
 import { useState, useEffect, type FC } from "react"
 import { Dropdown, Navbar, Container, Nav, Spinner, Alert } from "react-bootstrap"
 import Profile from "./Profile"
-import UpdatePreferences from "./UpdatePreferences"
+import UpdateGenrePreferences from "./UpdateGenrePreferences"
+import UpdateAuthorPreferences from "./UpdateAuthorPreferences"
 import { FaUser, FaHeart, FaSignOutAlt } from "react-icons/fa"
+
 
 interface BookRecommendation {
   id: string
@@ -13,14 +15,21 @@ interface BookRecommendation {
   download_links?: string
 }
 
+interface UserPreferences {
+  id: string | null
+  user_id: string
+  genres: string[]
+  authors: string[]
+}
+
 interface HomepageProps {
   token: string
   onLogout: () => void
 }
 
 const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
-  const [preferences, setPreferences] = useState<string[]>([])
-  const [view, setView] = useState<"none" | "profile" | "preferences">("none")
+  const [preferences, setPreferences] = useState<UserPreferences | null>(null)
+  const [view, setView] = useState<"none" | "profile" | "preferences" | "author_preferences">("none")
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [recommendations, setRecommendations] = useState<BookRecommendation[]>([])
@@ -53,7 +62,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
 
   // Fetch preferences when opening preferences view
   useEffect(() => {
-    if (view !== "preferences") return
+    if (view !== "preferences" && view !== "author_preferences") return
     const fetchPreferences = async () => {
       setLoading(true)
       setError(null)
@@ -63,9 +72,14 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
         })
         if (res.ok) {
           const data = await res.json()
-          setPreferences(data.genres || [])
+          setPreferences(data)
         } else if (res.status === 404) {
-          setPreferences([])
+          setPreferences({
+            id: null,
+            user_id: "",
+            genres: [],
+            authors: []
+          })
         } else {
           setError("Failed to load preferences")
         }
@@ -78,21 +92,54 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
     fetchPreferences()
   }, [view, token])
 
-  // Save updated preferences
-  const savePreferences = async (genres: string[]) => {
+  // Save updated genre preferences
+  const saveGenrePreferences = async (genres: string[]) => {
     setLoading(true)
     setError(null)
     try {
       const res = await fetch("http://localhost:8000/user/preferences", {
-        method: "POST",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ genres }),
+        body: JSON.stringify({ 
+          genres,
+          authors: preferences?.authors || []
+        }),
       })
       if (res.ok) {
-        setPreferences(genres)
+        setPreferences(prev => prev ? { ...prev, genres } : null)
+        setView("none")
+      } else {
+        const data = await res.json()
+        setError(data.detail || "Failed to save preferences")
+      }
+    } catch {
+      setError("Network error while saving preferences")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Save updated author preferences
+  const saveAuthorPreferences = async (authors: string[]) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch("http://localhost:8000/user/preferences", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ 
+          genres: preferences?.genres || [],
+          authors 
+        }),
+      })
+      if (res.ok) {
+        setPreferences(prev => prev ? { ...prev, authors } : null)
         setView("none")
       } else {
         const data = await res.json()
@@ -120,7 +167,10 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
                   <FaUser className="me-2" /> Profile
                 </Dropdown.Item>
                 <Dropdown.Item onClick={() => setView("preferences")}>
-                  <FaHeart className="me-2" /> Preferences
+                  <FaHeart className="me-2" /> Genre Preferences
+                </Dropdown.Item>
+                <Dropdown.Item onClick={() => setView("author_preferences")}>
+                  <FaHeart className="me-2" /> Author Preferences
                 </Dropdown.Item>
                 <Dropdown.Item
                   onClick={() => {
@@ -141,12 +191,21 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
         {view === "profile" && (
           <Profile token={token} onClose={() => setView("none")} />
         )}
-        {view === "preferences" && (
-          <UpdatePreferences
-            initialGenres={preferences}
+        {view === "preferences" && preferences && (
+          <UpdateGenrePreferences
+            initialGenres={preferences.genres}
             loading={loading}
-            onSave={savePreferences}
+            onSave={saveGenrePreferences}
             onCancel={() => setView("none")}
+          />
+        )}
+        {view === "author_preferences" && preferences && (
+          <UpdateAuthorPreferences
+            initialAuthors={preferences.authors}
+            loading={loading}
+            onSave={saveAuthorPreferences}
+            onCancel={() => setView("none")}
+            token={token}
           />
         )}
         {view === "none" && (

@@ -6,8 +6,12 @@ class UserCreate(BaseModel):
     email: str
     password: Optional[str] = None
 
-class GenresIn(BaseModel):
-    genres: List[str]
-
 class GoogleToken(BaseModel):
     credential: str
+
+class UserPreferences(BaseModel):
+    genres: Optional[List[str]] = None
+    authors: Optional[List[str]] = None
+    pincode: Optional[str] = None
+    age: Optional[int] = None
+
