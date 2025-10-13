@@ -10,3 +10,4 @@ httpx
 pinecone
 passlib[argon2]
 argon2-cffi
+user-agents

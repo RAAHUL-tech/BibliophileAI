@@ -15,3 +15,13 @@ class UserPreferences(BaseModel):
     pincode: Optional[str] = None
     age: Optional[int] = None
 
+class LogoutRequest(BaseModel):
+    session_id: str
+
+class ProfilePreferences(BaseModel):
+    pincode: Optional[str] = None
+    age: Optional[int] = None
+
+class SubmitReviewRequest(BaseModel):
+    rating: int
+    text: str

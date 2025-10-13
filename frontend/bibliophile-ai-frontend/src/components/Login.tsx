@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 interface LoginProps {
-  onLoginSuccess: (token: string) => void
+  onLoginSuccess: (token: string, sessionId: string) => void
 }
 
 export default function Login({ onLoginSuccess }: LoginProps) {
@@ -26,7 +26,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       })
       if (res.ok) {
         const data = await res.json()
-        onLoginSuccess(data.access_token)
+        onLoginSuccess(data.access_token, data.session_id)
         setUsername('')
         setPassword('')
         navigate('/home')

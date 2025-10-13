@@ -12,6 +12,10 @@ export default function AppRoutes() {
   const [token, setToken] = useState<string | null>(() => {
   return sessionStorage.getItem('token');
 });
+const [sessionId, setSessionId] = useState<string | null>(() => {
+  return sessionStorage.getItem('sessionId');
+});
+
   const [authMode, setAuthMode] = useState<AuthMode>('login')
   const [googleMsg, setGoogleMsg] = useState<string | null>(null)
   const [isNewUser, setIsNewUser] = useState(false) // Track new user registration
@@ -52,15 +56,19 @@ export default function AppRoutes() {
   fetchPreferences();
 }, [token, isNewUser, navigate]);
 
-  const handleLoginSuccess = (jwtToken: string) => {
+  const handleLoginSuccess = (jwtToken: string, sessionId: string) => {
     setToken(jwtToken)
+    setSessionId(sessionId)
     sessionStorage.setItem('token', jwtToken);
+    sessionStorage.setItem('sessionId', sessionId);
     setIsNewUser(false) // Mark returning user on login success
   }
 
   const handleLogout = () => {
     setToken(null)
+    setSessionId(null)
     sessionStorage.removeItem('token');
+    sessionStorage.removeItem('sessionId');
     setGoogleMsg(null)
     setIsNewUser(false)
     navigate('/')
@@ -71,41 +79,63 @@ export default function AppRoutes() {
     setAuthMode(mode)
   }
 
-  // Updated Google auth handler: mark new user on register
-  const handleGoogleAuth = async (credential: string) => {
-    setGoogleMsg(null)
-    try {
-      const endpoint = authMode === 'register' ? '/google-register' : '/google-login'
-      const res = await fetch(`http://localhost:8000${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.access_token) {
-          setToken(data.access_token)
-          sessionStorage.setItem('token', data.access_token);
-          setIsNewUser(authMode === 'register') // New user if registered
-        } else {
-          setGoogleMsg('Failed to obtain access token.')
-          if (authMode === 'register') setAuthMode('login')
-        }
-      } else {
-        const err = await res.json()
-        setGoogleMsg(`Error: ${err.detail || 'Google auth failed'}`)
-      }
-    } catch {
-      setGoogleMsg('Network error or server not reachable.')
-    }
-  }
+const handleGoogleAuth = async (credential: string) => {
+ setGoogleMsg(null);
+  try {
+    const endpoint = authMode === 'register' ? '/google-register' : '/google-login';
+    const res = await fetch(`http://localhost:8000${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential }),
+    });
 
-  const handleEmailRegisterSuccess = (jwtToken: string) => {
+    if (res.ok) {
+      const data = await res.json();
+      if (data.access_token && data.session_id) {
+        // Store both token and session_id
+        setToken(data.access_token);
+        sessionStorage.setItem('token', data.access_token);
+        setSessionId(data.session_id);
+        sessionStorage.setItem('sessionId', data.session_id);
+
+        // Mark as new user only on registration
+        setIsNewUser(authMode === 'register');
+      } else {
+        setGoogleMsg('Failed to obtain access token or session.');
+        if (authMode === 'register') setAuthMode('login');
+      }
+    } else {
+      const err = await res.json();
+      setGoogleMsg(`Error: ${err.detail || 'Google auth failed'}`);
+    }
+  } catch (error) {
+    setGoogleMsg('Network error or server not reachable.');
+  }
+};
+
+
+  const handleEmailRegisterSuccess = (jwtToken: string, sessionId: string) => {
     setToken(jwtToken)
+    setSessionId(sessionId)
     sessionStorage.setItem('token', jwtToken);
+    sessionStorage.setItem('sessionId', sessionId);
     setIsNewUser(true) // Mark new user on email registration success
   }
 
+useEffect(() => {
+  if (!sessionId) return;
+
+  const handleUnload = () => {
+    fetch("http://localhost:8000/logout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId })
+    });
+  };
+
+  window.addEventListener("beforeunload", handleUnload);
+  return () => window.removeEventListener("beforeunload", handleUnload);
+}, [sessionId]);
 
   return (
     <Routes>

@@ -3,6 +3,7 @@ import { Dropdown, Navbar, Container, Nav, Spinner, Alert } from "react-bootstra
 import Profile from "./Profile"
 import UpdateGenrePreferences from "./UpdateGenrePreferences"
 import UpdateAuthorPreferences from "./UpdateAuthorPreferences"
+import BookView from "./BookView";
 import { FaUser, FaHeart, FaSignOutAlt } from "react-icons/fa"
 
 
@@ -12,7 +13,7 @@ interface BookRecommendation {
   authors: string[]
   categories: string[]
   thumbnail_url?: string
-  download_links?: string
+  download_link?: string
 }
 
 interface UserPreferences {
@@ -35,6 +36,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
   const [recommendations, setRecommendations] = useState<BookRecommendation[]>([])
   const [loadingRecs, setLoadingRecs] = useState<boolean>(true)
   const [recsError, setRecsError] = useState<string | null>(null)
+  const [selectedBook, setSelectedBook] = useState<BookRecommendation | null>(null);
 
   // Fetch recommendations on first load
   useEffect(() => {
@@ -188,63 +190,73 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
       </Navbar>
 
       <div className="container" style={{ marginTop: "75px" }}>
-        {view === "profile" && (
-          <Profile token={token} onClose={() => setView("none")} />
-        )}
-        {view === "preferences" && preferences && (
-          <UpdateGenrePreferences
-            initialGenres={preferences.genres}
-            loading={loading}
-            onSave={saveGenrePreferences}
-            onCancel={() => setView("none")}
-          />
-        )}
-        {view === "author_preferences" && preferences && (
-          <UpdateAuthorPreferences
-            initialAuthors={preferences.authors}
-            loading={loading}
-            onSave={saveAuthorPreferences}
-            onCancel={() => setView("none")}
-            token={token}
-          />
-        )}
-        {view === "none" && (
-          <>
-            {loadingRecs ? (
-              <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "60vh" }}>
-                <Spinner animation="border" role="status" />
-                <span className="ms-3">Loading recommendations...</span>
-              </div>
-            ) : recsError ? (
-              <Alert variant="danger">{recsError}</Alert>
-            ) : (
-              <div>
-                <h2>Recommended for you</h2>
-                <div className="row">
-                  {recommendations.map(book => (
-                    <div key={book.id} className="col-md-4 col-lg-3 mb-4">
-                      <div className="card h-100">
-                        {book.thumbnail_url && (
-                          <img src={book.thumbnail_url} className="card-img-top" alt={book.title} />
-                        )}
-                        <div className="card-body">
-                          <h5 className="card-title">{book.title}</h5>
-                          <p className="card-text">
-                            {book.authors && book.authors.join(", ")}
-                          </p>
-                          <p className="card-text">
-                            {book.categories && book.categories.join(", ")}
-                          </p>
-                        </div>
+  {selectedBook ? (
+    <BookView book={selectedBook} token={token} onBack={() => setSelectedBook(null)} />
+  ) : (
+    <>
+      {view === "profile" && (
+        <Profile token={token} onClose={() => setView("none")} />
+      )}
+      {view === "preferences" && preferences && (
+        <UpdateGenrePreferences
+          initialGenres={preferences.genres}
+          loading={loading}
+          onSave={saveGenrePreferences}
+          onCancel={() => setView("none")}
+        />
+      )}
+      {view === "author_preferences" && preferences && (
+        <UpdateAuthorPreferences
+          initialAuthors={preferences.authors}
+          loading={loading}
+          onSave={saveAuthorPreferences}
+          onCancel={() => setView("none")}
+          token={token}
+        />
+      )}
+      {view === "none" && (
+        <>
+          {loadingRecs ? (
+            <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "60vh" }}>
+              <Spinner animation="border" role="status" />
+              <span className="ms-3">Loading recommendations...</span>
+            </div>
+          ) : recsError ? (
+            <Alert variant="danger">{recsError}</Alert>
+          ) : (
+            <div>
+              <h2>Recommended for you</h2>
+              <div className="row">
+                {recommendations.map((book) => (
+                  <div key={book.id} className="col-md-4 col-lg-3 mb-4">
+                    <div
+                      className="card h-100"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => setSelectedBook(book)}
+                    >
+                      {book.thumbnail_url && (
+                        <img src={book.thumbnail_url} className="card-img-top" alt={book.title} />
+                      )}
+                      <div className="card-body">
+                        <h5 className="card-title">{book.title}</h5>
+                        <p className="card-text">
+                          {book.authors && book.authors.join(", ")}
+                        </p>
+                        <p className="card-text">
+                          {book.categories && book.categories.join(", ")}
+                        </p>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
-            )}
-          </>
-        )}
-      </div>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  )}
+</div>
     </>
   )
 }

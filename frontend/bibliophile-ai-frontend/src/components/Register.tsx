@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 
 interface RegisterProps {
-  onRegisterSuccess: (jwtToken: string) => void
+  onRegisterSuccess: (jwtToken: string, sessionId: string) => void;
 }
 
 export default function Register({ onRegisterSuccess }: RegisterProps) {
@@ -10,35 +10,36 @@ export default function Register({ onRegisterSuccess }: RegisterProps) {
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState<string | null>(null)
 
-  const handleRegister = async (e: FormEvent) => {
-    e.preventDefault()
-    setMessage(null)
-    try {
-      const res = await fetch('http://localhost:8000/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password }),
-      })
-      if (res.ok) {
-        // Assuming backend returns access_token on successful register
-        const data = await res.json()
-        if (data.access_token) {
-          onRegisterSuccess(data.access_token) // Notify parent of successful registration + token
-          setMessage(null)
-          setUsername('')
-          setEmail('')
-          setPassword('')
-        } else {
-          setMessage('User registered successfully! Please login.')
-        }
+ const handleRegister = async (e: FormEvent) => {
+  e.preventDefault();
+  setMessage(null);
+  try {
+    const res = await fetch('http://localhost:8000/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.access_token && data.session_id) {
+        // Pass both to parent
+        onRegisterSuccess(data.access_token, data.session_id);
+        setMessage(null);
+        setUsername('');
+        setEmail('');
+        setPassword('');
       } else {
-        const error = await res.json()
-        setMessage(`Error: ${error.detail || 'Failed to register'}`)
+        setMessage('Registration successful, but missing token/session.');
       }
-    } catch {
-      setMessage('Network error or server not reachable.')
+    } else {
+      const error = await res.json();
+      setMessage(`Error: ${error.detail || 'Failed to register'}`);
     }
+  } catch {
+    setMessage('Network error or server not reachable.');
   }
+};
 
   return (
     <form className="mb-3 animate__animated animate__fadeIn" onSubmit={handleRegister}>
