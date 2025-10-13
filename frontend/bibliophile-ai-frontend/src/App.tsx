@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Register from './components/Register'
 import Login from './components/Login'
 import Homepage from './components/Homepage'
-import Preferences from './components/Preferences'
+import UserOnboarding from "./components/UserOnboarding";
 import { GoogleLogin } from '@react-oauth/google'
 
 type AuthMode = 'login' | 'register'
@@ -12,55 +12,63 @@ export default function AppRoutes() {
   const [token, setToken] = useState<string | null>(() => {
   return sessionStorage.getItem('token');
 });
+const [sessionId, setSessionId] = useState<string | null>(() => {
+  return sessionStorage.getItem('sessionId');
+});
+
   const [authMode, setAuthMode] = useState<AuthMode>('login')
   const [googleMsg, setGoogleMsg] = useState<string | null>(null)
   const [isNewUser, setIsNewUser] = useState(false) // Track new user registration
-  const [savingPrefs, setSavingPrefs] = useState(false)
   const navigate = useNavigate()
 
-  // Effect to navigate based on token and user type
   useEffect(() => {
-    if (!token) return
+  if (!token) return;
 
-    if (isNewUser) {
-      // New user: force preferences screen
-      navigate('/preferences')
-    } else {
-      // Returning user: fetch preferences and decide route
-      const fetchPreferences = async () => {
-        try {
-          const res = await fetch('http://localhost:8000/user/preferences', {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-          if (res.ok) {
-            const data = await res.json()
-            if (!data || !data.genres || data.genres.length === 0) {
-              navigate('/preferences')
-            } else {
-              navigate('/home')
-            }
-          } else if (res.status === 404) {
-            navigate('/preferences')
-          } else {
-            navigate('/home')
-          }
-        } catch {
-          navigate('/home')
+  // If registering a new user, always go to onboarding flow.
+  if (isNewUser) {
+    navigate('/onboarding');
+    return;
+  }
+
+  // Otherwise, check if the user has completed profile prefs.
+  const fetchPreferences = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/user/preferences', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (!data || !data.genres || data.genres.length === 0) {
+          navigate('/onboarding'); 
+        } else {
+          navigate('/home');
         }
+      } else if (res.status === 404) {
+        navigate('/onboarding');
+      } else {
+        navigate('/home');
       }
-      fetchPreferences()
+    } catch {
+      navigate('/home');
     }
-  }, [token, navigate, isNewUser])
+  };
 
-  const handleLoginSuccess = (jwtToken: string) => {
+  fetchPreferences();
+}, [token, isNewUser, navigate]);
+
+  const handleLoginSuccess = (jwtToken: string, sessionId: string) => {
     setToken(jwtToken)
+    setSessionId(sessionId)
     sessionStorage.setItem('token', jwtToken);
+    sessionStorage.setItem('sessionId', sessionId);
     setIsNewUser(false) // Mark returning user on login success
   }
 
   const handleLogout = () => {
     setToken(null)
+    setSessionId(null)
     sessionStorage.removeItem('token');
+    sessionStorage.removeItem('sessionId');
     setGoogleMsg(null)
     setIsNewUser(false)
     navigate('/')
@@ -71,67 +79,63 @@ export default function AppRoutes() {
     setAuthMode(mode)
   }
 
-  // Updated Google auth handler: mark new user on register
-  const handleGoogleAuth = async (credential: string) => {
-    setGoogleMsg(null)
-    try {
-      const endpoint = authMode === 'register' ? '/google-register' : '/google-login'
-      const res = await fetch(`http://localhost:8000${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.access_token) {
-          setToken(data.access_token)
-          sessionStorage.setItem('token', data.access_token);
-          setIsNewUser(authMode === 'register') // New user if registered
-        } else {
-          setGoogleMsg('Failed to obtain access token.')
-          if (authMode === 'register') setAuthMode('login')
-        }
-      } else {
-        const err = await res.json()
-        setGoogleMsg(`Error: ${err.detail || 'Google auth failed'}`)
-      }
-    } catch {
-      setGoogleMsg('Network error or server not reachable.')
-    }
-  }
+const handleGoogleAuth = async (credential: string) => {
+ setGoogleMsg(null);
+  try {
+    const endpoint = authMode === 'register' ? '/google-register' : '/google-login';
+    const res = await fetch(`http://localhost:8000${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential }),
+    });
 
-  const handleEmailRegisterSuccess = (jwtToken: string) => {
+    if (res.ok) {
+      const data = await res.json();
+      if (data.access_token && data.session_id) {
+        // Store both token and session_id
+        setToken(data.access_token);
+        sessionStorage.setItem('token', data.access_token);
+        setSessionId(data.session_id);
+        sessionStorage.setItem('sessionId', data.session_id);
+
+        // Mark as new user only on registration
+        setIsNewUser(authMode === 'register');
+      } else {
+        setGoogleMsg('Failed to obtain access token or session.');
+        if (authMode === 'register') setAuthMode('login');
+      }
+    } else {
+      const err = await res.json();
+      setGoogleMsg(`Error: ${err.detail || 'Google auth failed'}`);
+    }
+  } catch (error) {
+    setGoogleMsg('Network error or server not reachable.');
+  }
+};
+
+
+  const handleEmailRegisterSuccess = (jwtToken: string, sessionId: string) => {
     setToken(jwtToken)
+    setSessionId(sessionId)
     sessionStorage.setItem('token', jwtToken);
+    sessionStorage.setItem('sessionId', sessionId);
     setIsNewUser(true) // Mark new user on email registration success
   }
 
-const handleSavePreferences = async (selectedGenres: string[]) => {
-  if (!token) return
-  setSavingPrefs(true)
-  setGoogleMsg(null)
-  try {
-    const res = await fetch('http://localhost:8000/user/preferences', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ genres: selectedGenres }),
-    })
-    if (res.ok) {
-      setIsNewUser(false) // User no longer "new" after saving prefs
-      navigate('/home')   // Redirect to homepage
-    } else {
-      const errorData = await res.json()
-      setGoogleMsg(`Error saving preferences: ${errorData.detail || 'Unknown error'}`)
-    }
-  } catch (err) {
-    setGoogleMsg('Network error while saving preferences.')
-  } finally {
-    setSavingPrefs(false)
-  }
-}
+useEffect(() => {
+  if (!sessionId) return;
+
+  const handleUnload = () => {
+    fetch("http://localhost:8000/logout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId })
+    });
+  };
+
+  window.addEventListener("beforeunload", handleUnload);
+  return () => window.removeEventListener("beforeunload", handleUnload);
+}, [sessionId]);
 
   return (
     <Routes>
@@ -483,8 +487,8 @@ const handleSavePreferences = async (selectedGenres: string[]) => {
       ) : (
         <>
           <Route
-            path="/preferences"
-            element={<Preferences onSave={handleSavePreferences} loading={savingPrefs} />}
+            path="/onboarding"
+            element={<UserOnboarding token={token!} onComplete={() => { setIsNewUser(false); navigate('/home') }} />}
           />
           <Route
             path="/home"
