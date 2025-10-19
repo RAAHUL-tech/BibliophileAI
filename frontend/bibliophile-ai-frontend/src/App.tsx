@@ -33,7 +33,7 @@ const [sessionId, setSessionId] = useState<string | null>(() => {
   // Otherwise, check if the user has completed profile prefs.
   const fetchPreferences = async () => {
     try {
-      const res = await fetch('http://localhost:8000/user/preferences', {
+      const res = await fetch('http://localhost:8000/api/v1/user/preferences', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -64,15 +64,42 @@ const [sessionId, setSessionId] = useState<string | null>(() => {
     setIsNewUser(false) // Mark returning user on login success
   }
 
-  const handleLogout = () => {
-    setToken(null)
-    setSessionId(null)
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('sessionId');
-    setGoogleMsg(null)
-    setIsNewUser(false)
-    navigate('/')
+ const handleLogout = async () => {
+  try {
+    console.log("Logout called with:", { sessionId, token });
+
+    if (sessionId && token) {
+      const res = await fetch("http://localhost:8000/api/v1/user/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+      console.log("Logout response status:", res.status);
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Logout failed:", text);
+      } else {
+        console.log("Logout succeeded");
+      }
+    } else {
+      console.warn("Missing sessionId or token, skip logout API call");
+    }
+  } catch (error) {
+    console.error("Logout request failed:", error);
   }
+
+  setToken(null);
+  setSessionId(null);
+  sessionStorage.removeItem("token");
+  sessionStorage.removeItem("sessionId");
+  setGoogleMsg(null);
+  setIsNewUser(false);
+  navigate("/");
+};
+
 
   const handleSwitch = (mode: AuthMode) => {
     setGoogleMsg(null)
@@ -83,7 +110,7 @@ const handleGoogleAuth = async (credential: string) => {
  setGoogleMsg(null);
   try {
     const endpoint = authMode === 'register' ? '/google-register' : '/google-login';
-    const res = await fetch(`http://localhost:8000${endpoint}`, {
+    const res = await fetch(`http://localhost:8000/api/v1/user${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ credential }),
@@ -122,20 +149,6 @@ const handleGoogleAuth = async (credential: string) => {
     setIsNewUser(true) // Mark new user on email registration success
   }
 
-useEffect(() => {
-  if (!sessionId) return;
-
-  const handleUnload = () => {
-    fetch("http://localhost:8000/logout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: sessionId })
-    });
-  };
-
-  window.addEventListener("beforeunload", handleUnload);
-  return () => window.removeEventListener("beforeunload", handleUnload);
-}, [sessionId]);
 
   return (
     <Routes>

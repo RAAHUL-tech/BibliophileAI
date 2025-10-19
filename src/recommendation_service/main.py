@@ -56,7 +56,7 @@ async def get_current_user(token: str = Security(oauth2_scheme)):
     return user
 
 
-@app.get("/recommend")
+@app.get("/api/v1/recommend/combined")
 async def recommend_dense(current_user: dict = Depends(get_current_user)):
     # Extendable for multiple algorithms
     user_id = current_user["id"]

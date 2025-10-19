@@ -35,7 +35,7 @@ export default function UserOnboarding({ token, onComplete }: UserOnboardingProp
   setLoading(true);
   setError(null);
   try {
-    const res = await fetch("http://localhost:8000/user/preferences", {
+    const res = await fetch("http://localhost:8000/api/v1/user/preferences", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

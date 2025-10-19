@@ -43,6 +43,27 @@ spec:
             secretKeyRef:
               name: secret
               key: PINECONE_API_KEY
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: AWS_ACCESS_KEY_ID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: AWS_SECRET_ACCESS_KEY
+        - name: AWS_DEFAULT_REGION
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: AWS_DEFAULT_REGION
+        - name: SQS_QUEUE_URL
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: SQS_QUEUE_URL
+
 ---
 apiVersion: v1
 kind: Service

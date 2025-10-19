@@ -44,7 +44,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
     setRecsError(null)
     const fetchRecs = async () => {
       try {
-        const res = await fetch("http://localhost:8001/recommend", {
+        const res = await fetch("http://localhost:8001/api/v1/recommend/combined", {
           headers: { Authorization: `Bearer ${token}` }
         })
         if (res.ok) {
@@ -69,7 +69,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
       setLoading(true)
       setError(null)
       try {
-        const res = await fetch("http://localhost:8000/user/preferences", {
+        const res = await fetch("http://localhost:8000/api/v1/user/preferences", {
           headers: { Authorization: `Bearer ${token}` },
         })
         if (res.ok) {
@@ -99,7 +99,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch("http://localhost:8000/user/preferences", {
+      const res = await fetch("http://localhost:8000/api/v1/user/preferences", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -129,7 +129,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch("http://localhost:8000/user/preferences", {
+      const res = await fetch("http://localhost:8000/api/v1/user/preferences", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -177,7 +177,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
                 <Dropdown.Item
                   onClick={() => {
                     onLogout()
-                    window.location.href = "/"
+                    
                   }}
                   className="text-danger"
                 >

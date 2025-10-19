@@ -386,3 +386,28 @@ async def get_user_bookmark_ids(user_id: str) -> list[str]:
         else:
             resp.raise_for_status()
     return []
+
+
+async def get_current_active_session_id(user_id: str) -> str:
+    """
+    Returns the session_id of the latest active session for a user.
+    If multiple are active, picks the most recent last_activity.
+    Returns None if there are no active sessions.
+    """
+    url = f"{SUPABASE_URL}/rest/v1/sessions"
+    params = {
+        "user_id": f"eq.{user_id}",
+        "is_active": "eq.true",          # Filters only active sessions
+        "order": "last_activity.desc",   # Most recent first
+        "limit": 1,                      # Only one needed
+        "select": "session_id,last_activity"
+    }
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url, headers=headers, params=params)
+        if resp.status_code != 200:
+            print("Supabase session query error:", resp.status_code, resp.text)
+            return None
+        data = resp.json()
+        if data and len(data) > 0:
+            return data[0]
+        return None

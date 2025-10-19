@@ -38,7 +38,7 @@ export default function Profile({ token, onClose }: ProfileProps) {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch("http://localhost:8000/user/profile", {
+        const res = await fetch("http://localhost:8000/api/v1/user/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -62,7 +62,7 @@ export default function Profile({ token, onClose }: ProfileProps) {
   useEffect(() => {
     const fetchBookmarks = async () => {
       try {
-        const res = await fetch("http://localhost:8000/user/bookmarks", {
+        const res = await fetch("http://localhost:8000/api/v1/user/bookmarks", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -93,7 +93,7 @@ export default function Profile({ token, onClose }: ProfileProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("http://localhost:8000/user/profile_update", {
+      const res = await fetch("http://localhost:8000/api/v1/user/profile_update", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
