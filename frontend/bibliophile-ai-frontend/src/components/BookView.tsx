@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ReactReader } from "react-reader";
 import { FaStar, FaRegStar } from "react-icons/fa";
 
@@ -34,11 +34,13 @@ export default function BookView({ book, token, onBack }: BookViewProps) {
   const [location, setLocation] = useState<string | number>(0);
   const [bookmarked, setBookmarked] = useState(false);
   const [bookmarkMsg, setBookmarkMsg] = useState<string | null>(null);
+  const hasReportedRead = useRef(false);
+  const lastSentPage = useRef<string | number>(null);
 
 
   useEffect(() => {
     // Load bookmark status for the current user and book
-    fetch(`http://localhost:8000/books/${book.id}/bookmark`, {
+    fetch(`http://localhost:8000/api/v1/user/books/${book.id}/bookmark`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -49,7 +51,7 @@ export default function BookView({ book, token, onBack }: BookViewProps) {
   // Fetch reviews and ratings
   useEffect(() => {
     setLoadingReviews(true);
-    fetch(`http://localhost:8000/books/${book.id}/reviews-ratings`, {
+    fetch(`http://localhost:8000/api/v1/user/books/${book.id}/reviews-ratings`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())
@@ -61,6 +63,37 @@ export default function BookView({ book, token, onBack }: BookViewProps) {
       .finally(() => setLoadingReviews(false));
   }, [book.id, token]);
 
+ useEffect(() => {
+  if (!hasReportedRead.current && book.id && token) {
+    fetch(`http://localhost:8000/api/v1/user/books/${book.id}/track-read`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    hasReportedRead.current = true;
+  }
+}, [book.id, token]);
+
+useEffect(() => {
+    if (!token || !book.id) return;
+    if (location === lastSentPage.current) return;
+
+    // Send page turn event on location change
+    fetch(`http://localhost:8000/api/v1/user/books/${book.id}/page-turn`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ page: location }), // Send current page
+    }).catch((e) => {
+      console.error("Failed to record page turn:", e);
+    });
+
+    lastSentPage.current = location;
+  }, [location, token, book.id]);
+  
   // Submit new review
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,7 +104,7 @@ export default function BookView({ book, token, onBack }: BookViewProps) {
     setSubmitting(true);
     setReviewMsg(null);
     try {
-      const res = await fetch(`http://localhost:8000/books/${book.id}/review`, {
+      const res = await fetch(`http://localhost:8000/api/v1/user/books/${book.id}/review`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -84,7 +117,7 @@ export default function BookView({ book, token, onBack }: BookViewProps) {
         setNewRating(0);
         setNewReview("");
         // Refetch all reviews to avoid stale state and ensure DB consistency
-        fetch(`http://localhost:8000/books/${book.id}/reviews-ratings`, {
+        fetch(`http://localhost:8000/api/v1/user/books/${book.id}/reviews-ratings`, {
         headers: { Authorization: `Bearer ${token}` }
         })
         .then((res) => res.json())
@@ -107,7 +140,7 @@ export default function BookView({ book, token, onBack }: BookViewProps) {
 
 
   const handleBookmarkToggle = async () => {
-    const url = `http://localhost:8000/books/${book.id}/bookmark`;
+    const url = `http://localhost:8000/api/v1/user/books/${book.id}/bookmark`;
     try {
       const res = await fetch(url, {
         method: bookmarked ? "DELETE" : "POST",
@@ -231,7 +264,7 @@ export default function BookView({ book, token, onBack }: BookViewProps) {
         {book.id ? (
           <div style={{ height: "600px", border: "1px solid #ddd", background: "#fff" }}>
             <ReactReader
-              url={`http://localhost:8000/proxy-epub/${book.id}/`}
+              url={`http://localhost:8000/api/v1/user/proxy-epub/${book.id}/`}
               location={location}
               locationChanged={setLocation}
               showToc={false}

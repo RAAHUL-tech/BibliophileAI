@@ -14,7 +14,7 @@ export default function Register({ onRegisterSuccess }: RegisterProps) {
   e.preventDefault();
   setMessage(null);
   try {
-    const res = await fetch('http://localhost:8000/register', {
+    const res = await fetch('http://localhost:8000/api/v1/user/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, email, password }),

@@ -6,7 +6,7 @@ import os
 from fastapi.middleware.cors import CORSMiddleware
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
-from schemas import UserCreate, GoogleToken, UserPreferences, LogoutRequest, ProfilePreferences, SubmitReviewRequest
+from schemas import UserCreate, GoogleToken, UserPreferences, LogoutRequest, ProfilePreferences, SubmitReviewRequest, PageTurnEvent
 from supabase_client import (
     get_user_by_username,
     get_user_by_email,
@@ -14,13 +14,15 @@ from supabase_client import (
     is_bookmarked_by_user,
     add_user_bookmark,
     remove_user_bookmark,
-    update_preferences,
+    update_preferences, get_current_active_session_id,
     create_preferences, get_user_bookmark_ids, get_books_by_ids,
     get_preferences_by_user_id, save_review_and_rating_to_db,
     update_user_profile, get_popular_authors_from_db, end_session, create_session, get_reviews_and_avg_rating_from_db
 )
 import httpx
 from user_agents import parse
+import uuid
+from datetime import datetime
 from auth import create_access_token, decode_access_token
 from typing import Dict
 import hashlib
@@ -29,6 +31,7 @@ import logging
 from io import BytesIO
 import zipfile
 import mimetypes
+from produce import send_click_event
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -71,7 +74,7 @@ def prehash_password(password: str) -> str:
     sha256_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
     return sha256_hash
 
-@app.post("/register")
+@app.post("/api/v1/user/register")
 async def register(request: Request, user: UserCreate):
     existing_user = await get_user_by_username(user.username)
     if existing_user:
@@ -92,9 +95,21 @@ async def register(request: Request, user: UserCreate):
         user_agent=user_agent,
         metadata=None
     )
+    event = {
+        "event_id": str(uuid.uuid4()),
+        "user_id": user["id"],
+        "item_id": None,
+        "event_type": "register",
+        "timestamp": datetime.utcnow().isoformat(),
+        "session_id": session_id,
+        "duration": None,
+        "metadata": {}
+    }
+    group_id = f"user_{user['id']}"
+    send_click_event(event, group_id)
     return {"access_token": access_token, "token_type": "bearer", "session_id": session_id}
 
-@app.post("/login")
+@app.post("/api/v1/user/login")
 async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     user = await get_user_by_username(form_data.username)
     if not user or not user.get("hashed_password"):
@@ -114,9 +129,21 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         user_agent=user_agent,
         metadata=None
     )
+    event = {
+        "event_id": str(uuid.uuid4()),
+        "user_id": user["id"],
+        "item_id": None,
+        "event_type": "login",
+        "timestamp": datetime.utcnow().isoformat(),
+        "session_id": session_id,
+        "duration": None,
+        "metadata": {}
+    }
+    group_id = f"user_{user['id']}"
+    send_click_event(event, group_id)
     return {"access_token": access_token, "token_type": "bearer", "session_id": session_id}
 
-@app.post("/google-register")
+@app.post("/api/v1/user/google-register")
 async def google_register(request: Request, token: GoogleToken):
     try:
         idinfo = id_token.verify_oauth2_token(token.credential, google_requests.Request(), GOOGLE_CLIENT_ID)
@@ -141,12 +168,24 @@ async def google_register(request: Request, token: GoogleToken):
             user_agent=user_agent,
             metadata=None
         )
+        event = {
+            "event_id": str(uuid.uuid4()),
+            "user_id": user["id"],
+            "item_id": None,
+            "event_type": "google_register",
+            "timestamp": datetime.utcnow().isoformat(),
+            "session_id": session_id,
+            "duration": None,
+            "metadata": {}
+        }
+        group_id = f"user_{user['id']}"
+        send_click_event(event, group_id)
         return {"access_token": access_token, "token_type": "bearer", "session_id": session_id}
     except ValueError as ex:
         print("Google token error:", ex)
         raise HTTPException(status_code=400, detail="Invalid Google token")
 
-@app.post("/google-login")
+@app.post("/api/v1/user/google-login")
 async def google_login(request: Request, token: GoogleToken):
     if not token.credential:
         raise HTTPException(status_code=400, detail="Missing Google credential")
@@ -176,7 +215,18 @@ async def google_login(request: Request, token: GoogleToken):
             user_agent=user_agent,
             metadata=None
         )
-
+        event = {
+            "event_id": str(uuid.uuid4()),
+            "user_id": user["id"],
+            "item_id": None,
+            "event_type": "google_login",
+            "timestamp": datetime.utcnow().isoformat(),
+            "session_id": session_id,
+            "duration": None,
+            "metadata": {}
+        }
+        group_id = f"user_{user['id']}"
+        send_click_event(event, group_id)
         return {
             "access_token": access_token,
             "token_type": "bearer",
@@ -188,7 +238,7 @@ async def google_login(request: Request, token: GoogleToken):
         raise HTTPException(status_code=400, detail="Invalid Google token")
 
 
-@app.post("/user/preferences")
+@app.post("/api/v1/user/preferences")
 async def save_preferences(
     prefs_in: UserPreferences, 
     current_user=Depends(get_current_user)
@@ -227,7 +277,25 @@ async def save_preferences(
         except Exception as e:
             logger.warning(f"Error creating embedding for user {user_id}: {e}")
             # Don't fail the entire request if embedding creation fails
-        
+        session_info = await get_current_active_session_id(user_id)
+        session_id = session_info["session_id"] if session_info else None  
+        event = {
+            "event_id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "item_id": None,
+            "event_type": "preferences_update",
+            "timestamp": datetime.utcnow().isoformat(),
+            "session_id": session_id,
+            "duration": None,
+            "metadata": {
+                "genres": prefs_in.genres,
+                "authors": prefs_in.authors,
+                "age": prefs_in.age,
+                "pincode": prefs_in.pincode
+            }
+        }
+        group_id = f"user_{user_id}"
+        send_click_event(event, group_id)
         return {
             "user_id": user_id,
             "genres": prefs_in.genres,
@@ -236,7 +304,6 @@ async def save_preferences(
             "pincode": prefs_in.pincode,
             "updated_at": preferences_result.get("updated_at")
         }
-        
     except HTTPException:
         raise
     except Exception as e:
@@ -247,7 +314,7 @@ async def save_preferences(
         )
     
 
-@app.get("/user/preferences")
+@app.get("/api/v1/user/preferences")
 async def get_preferences(current_user=Depends(get_current_user)):
     """
     Get user preferences including both genres and authors.
@@ -273,7 +340,7 @@ async def get_preferences(current_user=Depends(get_current_user)):
         "authors": authors_list
     }
 
-@app.patch("/user/preferences")
+@app.patch("/api/v1/user/preferences")
 async def patch_preferences(
     prefs_in: UserPreferences,
     current_user=Depends(get_current_user)
@@ -312,7 +379,24 @@ async def patch_preferences(
         await create_user_embedding_vectors(user_id, prefs_in.genres, prefs_in.authors, prefs_in.age, prefs_in.pincode)
     except Exception as e:
         logger.warning(f"Error creating embedding for user {user_id}: {e}")
-        
+
+    session_info = await get_current_active_session_id(user_id)
+    session_id = session_info["session_id"] if session_info else None      
+    event = {
+        "event_id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "item_id": None,
+        "event_type": "preferences_update",
+        "timestamp": datetime.utcnow().isoformat(),
+        "session_id": session_id,
+        "duration": None,
+        "metadata": {
+            "genres": genres,
+            "authors": authors
+        }
+    }
+    group_id = f"user_{user_id}"
+    send_click_event(event, group_id)
     return {
         "user_id": user_id,
         "genres": genres,
@@ -320,7 +404,7 @@ async def patch_preferences(
         "updated_at": preferences_result.get("updated_at")
     }
 
-@app.get("/user/profile")
+@app.get("/api/v1/user/profile")
 async def get_user_profile(current_user=Depends(get_current_user)):
     """
     Get complete user profile information including username, email, age, and pincode.
@@ -332,7 +416,7 @@ async def get_user_profile(current_user=Depends(get_current_user)):
         "pincode": current_user.get("pincode")
     }
 
-@app.get("/popular-authors")
+@app.get("/api/v1/user/popular-authors")
 async def get_popular_authors(current_user=Depends(get_current_user)):
     """
     Get the most popular authors based on book count.
@@ -347,10 +431,38 @@ async def get_popular_authors(current_user=Depends(get_current_user)):
         return {"authors": []}
     
 
-@app.post("/logout")
-async def logout(req: LogoutRequest):
-    await end_session(req.session_id)
-    return {"success": True}
+@app.post("/api/v1/user/logout")
+async def logout(req: LogoutRequest, current_user=Depends(get_current_user)):
+    try:
+        # Fetch current active session info (session_id, last_activity)
+        session_info = await get_current_active_session_id(current_user["id"])
+        if not session_info or session_info["session_id"] != req.session_id:
+            # Session mismatch or no active session found
+            duration = None
+        else:
+            last_activity = datetime.fromisoformat(session_info["last_activity"])
+            now = datetime.utcnow()
+            duration = (now - last_activity).total_seconds()
+        
+        event = {
+            "event_id": str(uuid.uuid4()),
+            "user_id": current_user["id"],
+            "item_id": None,
+            "event_type": "logout",
+            "timestamp": datetime.utcnow().isoformat(),
+            "session_id": req.session_id,
+            "duration": duration,
+            "metadata": {}
+        }
+        group_id = f"user_{current_user['id']}"
+        send_click_event(event, group_id)
+
+        await end_session(req.session_id)
+        return {"success": True}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Logout failed: {e}")
+
 
 @app.post("/user/profile_update")
 async def save_profile(
@@ -368,7 +480,24 @@ async def save_profile(
             user_id=user_id,
             age=prefs_in.age,
             pincode=prefs_in.pincode
-        )       
+        ) 
+        session_info = await get_current_active_session_id(user_id)
+        session_id = session_info["session_id"] if session_info else None   
+        event = {
+            "event_id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "item_id": None,
+            "event_type": "profile_update",
+            "timestamp": datetime.utcnow().isoformat(),
+            "session_id": session_id,
+            "duration": None,
+            "metadata": {
+                "age": prefs_in.age,
+                "pincode": prefs_in.pincode
+            }
+        }
+        group_id = f"user_{user_id}"
+        send_click_event(event, group_id)     
         return {
             "user_id": user_id,
             "age": prefs_in.age,
@@ -385,7 +514,7 @@ async def save_profile(
         )
     
 
-@app.get("/books/{book_id}/reviews-ratings")
+@app.get("/api/v1/user/books/{book_id}/reviews-ratings")
 async def get_reviews_and_ratings(book_id: str, current_user=Depends(get_current_user)):
     try:
         data = await get_reviews_and_avg_rating_from_db(book_id)
@@ -395,7 +524,7 @@ async def get_reviews_and_ratings(book_id: str, current_user=Depends(get_current
         raise HTTPException(status_code=500, detail="Failed to fetch reviews and ratings")
 
 
-@app.post("/books/{book_id}/review")
+@app.post("/api/v1/user/books/{book_id}/review")
 async def submit_review(
     book_id: str,
     request_body: SubmitReviewRequest,
@@ -420,13 +549,32 @@ async def submit_review(
         )
         if not success:
             raise HTTPException(status_code=500, detail="Failed to save review")
+        
+        session_info = await get_current_active_session_id(user_id)
+        session_id = session_info["session_id"] if session_info else None   
+        event = {
+            "event_id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "item_id": book_id,
+            "event_type": "review",
+            "timestamp": datetime.utcnow().isoformat(),
+            "session_id": session_id,
+            "duration": None,
+            "metadata": {
+                "rating": rating,
+                "review_text": content
+            }
+        }
+        group_id = f"user_{user_id}"
+        send_click_event(event, group_id)
+
         return {"message": "Review submitted successfully"}
     except Exception as e:
         print("Error saving review:", e)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@app.get("/proxy-epub/{book_id}/")
+@app.get("/api/v1/user/proxy-epub/{book_id}/")
 def proxy_epub(book_id: str):
     epub_url = S3_BUCKET_URL_TEMPLATE.format(book_id=book_id)
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -436,7 +584,7 @@ def proxy_epub(book_id: str):
     raise HTTPException(status_code=404, detail="EPUB file not found")
 
 # Serve internal files (e.g. META-INF/container.xml)
-@app.get("/proxy-epub/{book_id}/{internal_path:path}")
+@app.get("/api/v1/user/proxy-epub/{book_id}/{internal_path:path}")
 def proxy_epub_file(book_id: str, internal_path: str):
     # Download full EPUB from S3
     epub_url = S3_BUCKET_URL_TEMPLATE.format(book_id=book_id)
@@ -462,7 +610,7 @@ def proxy_epub_file(book_id: str, internal_path: str):
     return Response(content=file_bytes, media_type=content_type)
 
 
-@app.get("/books/{book_id}/bookmark")
+@app.get("/api/v1/user/books/{book_id}/bookmark")
 async def get_bookmark_status(book_id: str, current_user=Depends(get_current_user)):
     user_id = current_user["id"]
     try:
@@ -472,27 +620,58 @@ async def get_bookmark_status(book_id: str, current_user=Depends(get_current_use
         print("Error checking bookmark:", e)
         raise HTTPException(status_code=500, detail="Failed to check bookmark")
 
-@app.post("/books/{book_id}/bookmark")
+@app.post("/api/v1/user/books/{book_id}/bookmark")
 async def add_bookmark(book_id: str, current_user=Depends(get_current_user)):
     user_id = current_user["id"]
     try:
         await add_user_bookmark(user_id, book_id)
+        session_info = await get_current_active_session_id(user_id)
+        session_id = session_info["session_id"] if session_info else None
+ 
+        event = {
+            "event_id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "item_id": book_id,
+            "event_type": "bookmark_add",
+            "timestamp": datetime.utcnow().isoformat(),
+            "session_id": session_id,
+            "duration": None,
+            "metadata": {}
+        }
+        group_id = f"user_{user_id}"
+        send_click_event(event, group_id)
+
         return {"status": "bookmarked"}
     except Exception as e:
         print("Error adding bookmark:", e)
         raise HTTPException(status_code=500, detail="Failed to add bookmark")
 
-@app.delete("/books/{book_id}/bookmark")
+@app.delete("/api/v1/user/books/{book_id}/bookmark")
 async def remove_bookmark(book_id: str, current_user=Depends(get_current_user)):
     user_id = current_user["id"]
     try:
         await remove_user_bookmark(user_id, book_id)
+        session_info = await get_current_active_session_id(user_id)
+        session_id = session_info["session_id"] if session_info else None  
+        event = {
+            "event_id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "item_id": book_id,
+            "event_type": "bookmark_remove",
+            "timestamp": datetime.utcnow().isoformat(),
+            "session_id": session_id,
+            "duration": None,
+            "metadata": {}
+        }
+        group_id = f"user_{user_id}"
+        send_click_event(event, group_id)
+
         return {"status": "bookmark removed"}
     except Exception as e:
         print("Error removing bookmark:", e)
         raise HTTPException(status_code=500, detail="Failed to remove bookmark")
 
-@app.get("/user/bookmarks")
+@app.get("/api/v1/user/bookmarks")
 async def get_user_bookmarks(current_user=Depends(get_current_user)):
     user_id = current_user["id"]
 
@@ -515,3 +694,59 @@ async def get_user_bookmarks(current_user=Depends(get_current_user)):
         raise HTTPException(status_code=e.response.status_code, detail="Failed to fetch data from Supabase")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@app.post("/api/v1/user/books/{book_id}/track-read")
+async def track_book_read(book_id: str, current_user=Depends(get_current_user)):
+    try:
+        # Optionally get active session id if you have a helper for that:
+        session_info = await get_current_active_session_id(current_user["id"])
+        session_id = session_info["session_id"] if session_info else None
+        
+        event = {
+            "event_id": str(uuid.uuid4()),
+            "user_id": current_user["id"],
+            "item_id": book_id,
+            "event_type": "read",
+            "timestamp": datetime.utcnow().isoformat(),
+            "session_id": session_id,
+            "duration": None,
+            "metadata": {
+                "source": "S3_EPUB",
+                "page": "start"
+            }
+        }
+        group_id = f"user_{current_user['id']}"
+        send_click_event(event, group_id)
+        return {"success": True}
+    except Exception as e:
+        print(f"Track read error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to log read event.")
+
+
+@app.post("/api/v1/user/books/{book_id}/page-turn")
+async def page_turn(book_id: str, event: PageTurnEvent, current_user=Depends(get_current_user)):
+    try:
+        # Optionally get current active session id via helper
+        session_info = await get_current_active_session_id(current_user["id"])
+        session_id = session_info["session_id"] if session_info else None
+
+        click_event = {
+            "event_id": str(uuid.uuid4()),
+            "user_id": current_user["id"],
+            "item_id": book_id,
+            "event_type": "page_turn",
+            "timestamp": datetime.utcnow().isoformat(),
+            "session_id": session_id,
+            "duration": None,
+            "metadata": {
+                "page": event.page
+            }
+        }
+        group_id = f"user_{current_user['id']}"
+        send_click_event(click_event, group_id)
+
+        return {"success": True}
+    except Exception as e:
+        print("Error in page-turn event:", e)
+        raise HTTPException(status_code=500, detail="Failed to log page-turn event.")

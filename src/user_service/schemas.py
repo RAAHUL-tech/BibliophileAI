@@ -25,3 +25,6 @@ class ProfilePreferences(BaseModel):
 class SubmitReviewRequest(BaseModel):
     rating: int
     text: str
+
+class PageTurnEvent(BaseModel):
+    page: str  

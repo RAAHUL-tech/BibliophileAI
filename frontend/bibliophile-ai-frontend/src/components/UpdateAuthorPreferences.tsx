@@ -26,7 +26,7 @@ export default function UpdateAuthorPreferences({
   // Fetch popular authors from backend
   useEffect(() => {
     const controller = new AbortController();
-    fetch("http://localhost:8000/popular-authors", {
+    fetch("http://localhost:8000/api/v1/user/popular-authors", {
       headers: { Authorization: `Bearer ${token}` },
       signal: controller.signal
     })
