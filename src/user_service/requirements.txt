@@ -12,3 +12,4 @@ passlib[argon2]
 argon2-cffi
 user-agents
 boto3
+neo4j

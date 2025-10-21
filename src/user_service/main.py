@@ -19,6 +19,8 @@ from supabase_client import (
     get_preferences_by_user_id, save_review_and_rating_to_db,
     update_user_profile, get_popular_authors_from_db, end_session, create_session, get_reviews_and_avg_rating_from_db
 )
+from neo4j_client import (create_user_follows_users, create_user_read_book, create_user_bookmarked_book, update_user_profile_fields,
+                          delete_user_bookmarked_book, create_user_rated_book, create_user_preferences, patch_user_preferences)
 import httpx
 from user_agents import parse
 import uuid
@@ -296,6 +298,14 @@ async def save_preferences(
         }
         group_id = f"user_{user_id}"
         send_click_event(event, group_id)
+        create_user_preferences(
+            user_id=user_id,
+            username=current_user["username"], 
+            genres=prefs_in.genres,
+            authors=prefs_in.authors,
+            age=prefs_in.age,
+            pincode=prefs_in.pincode
+        )
         return {
             "user_id": user_id,
             "genres": prefs_in.genres,
@@ -397,6 +407,16 @@ async def patch_preferences(
     }
     group_id = f"user_{user_id}"
     send_click_event(event, group_id)
+    patch_user_preferences(
+        user_id=user_id,
+        username=current_user["username"],
+        old_genres=current.get("genres", []),
+        new_genres=genres,
+        old_authors=current.get("authors", []),
+        new_authors=authors,
+        age=prefs_in.age,
+        pincode=prefs_in.pincode
+    )
     return {
         "user_id": user_id,
         "genres": genres,
@@ -497,7 +517,12 @@ async def save_profile(
             }
         }
         group_id = f"user_{user_id}"
-        send_click_event(event, group_id)     
+        send_click_event(event, group_id)  
+        update_user_profile_fields(
+            user_id=user_id,
+            age=prefs_in.age,
+            pincode=prefs_in.pincode
+        )   
         return {
             "user_id": user_id,
             "age": prefs_in.age,
@@ -567,6 +592,12 @@ async def submit_review(
         }
         group_id = f"user_{user_id}"
         send_click_event(event, group_id)
+        create_user_rated_book(
+            user_id=user_id,
+            book_id=book_id,
+            score=rating,
+            timestamp=datetime.utcnow().isoformat()
+        )
 
         return {"message": "Review submitted successfully"}
     except Exception as e:
@@ -640,7 +671,7 @@ async def add_bookmark(book_id: str, current_user=Depends(get_current_user)):
         }
         group_id = f"user_{user_id}"
         send_click_event(event, group_id)
-
+        create_user_bookmarked_book(user_id=user_id, book_id=book_id)
         return {"status": "bookmarked"}
     except Exception as e:
         print("Error adding bookmark:", e)
@@ -665,7 +696,7 @@ async def remove_bookmark(book_id: str, current_user=Depends(get_current_user)):
         }
         group_id = f"user_{user_id}"
         send_click_event(event, group_id)
-
+        delete_user_bookmarked_book(user_id=user_id, book_id=book_id)
         return {"status": "bookmark removed"}
     except Exception as e:
         print("Error removing bookmark:", e)
@@ -718,6 +749,7 @@ async def track_book_read(book_id: str, current_user=Depends(get_current_user)):
         }
         group_id = f"user_{current_user['id']}"
         send_click_event(event, group_id)
+        create_user_read_book(user_id=current_user["id"], book_id=book_id)
         return {"success": True}
     except Exception as e:
         print(f"Track read error: {e}")
