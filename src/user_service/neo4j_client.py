@@ -157,3 +157,118 @@ def update_user_profile_fields(user_id: str, age: int = None, pincode: str = Non
             """,
             user_id=user_id, age=age, pincode=pincode
         )
+
+def delete_user_follows_user(user_id: str, followed_user_id: str):
+    """
+    Remove a FOLLOWS relationship between two users.
+    """
+    with driver.session() as session:
+        session.run("""
+            MATCH (u1:User {id: $user_id})-[r:FOLLOWS]->(u2:User {id: $followed_user_id})
+            DELETE r
+        """, user_id=user_id, followed_user_id=followed_user_id)
+
+def neo4j_suggest_followers(user_id: str, limit: int = 50):
+    with driver.session() as session:
+        # 1. Find mutual friends (users where there is a FOLLOWS relationship both ways)
+        mutual_friends_result = session.run("""
+            MATCH (me:User {id: $user_id})-[:FOLLOWS]->(friend:User)-[:FOLLOWS]->(me)
+            RETURN friend.id AS id, friend.username AS username
+        """, user_id=user_id)
+        mutual_friends = [rec["id"] for rec in mutual_friends_result]
+
+        suggestions = {}
+        exclude_ids = set(mutual_friends)
+        exclude_ids.add(user_id)
+
+        # 2. Suggest their followers & following (excluding self and already mutual friends)
+        if mutual_friends:
+            # Followers of mutual friends
+            followers_result = session.run("""
+                MATCH (f:User)-[:FOLLOWS]->(mf:User)
+                WHERE mf.id IN $mutual_friends AND f.id <> $user_id
+                RETURN DISTINCT f.id AS id, f.username AS username
+            """, mutual_friends=mutual_friends, user_id=user_id)
+            for rec in followers_result:
+                if rec["id"] not in exclude_ids:
+                    suggestions[rec["id"]] = dict(rec)
+                    exclude_ids.add(rec["id"])
+
+            # Following of mutual friends
+            following_result = session.run("""
+                MATCH (mf:User)-[:FOLLOWS]->(f:User)
+                WHERE mf.id IN $mutual_friends AND f.id <> $user_id
+                RETURN DISTINCT f.id AS id, f.username AS username
+            """, mutual_friends=mutual_friends, user_id=user_id)
+            for rec in following_result:
+                if rec["id"] not in exclude_ids:
+                    suggestions[rec["id"]] = dict(rec)
+                    exclude_ids.add(rec["id"])
+
+        # 3. Add users from author overlap logic (excluding self, mutual friends, any already suggested)
+        author_suggestions_result = session.run("""
+            MATCH (me:User {id: $user_id})-[:FOLLOWS]->(a:Author)
+            WITH collect(a) as my_authors, me
+            MATCH (other:User)-[:FOLLOWS]->(a2:Author)
+            WHERE a2 IN my_authors AND other.id <> me.id AND NOT other.id IN $exclude_ids
+            RETURN DISTINCT other.id as id, other.username as username
+            ORDER BY rand()
+            LIMIT $auth_limit
+        """, user_id=user_id, exclude_ids=list(exclude_ids), auth_limit=limit)
+        for rec in author_suggestions_result:
+            if rec["id"] not in exclude_ids:
+                suggestions[rec["id"]] = dict(rec)
+                exclude_ids.add(rec["id"])
+
+        # 4. If not enough, fill with random users (excluding all above)
+        if len(suggestions) < limit:
+            random_fill_result = session.run("""
+                MATCH (me:User {id: $user_id})
+                MATCH (u:User)
+                WHERE u.id <> me.id AND NOT u.id IN $exclude_ids
+                RETURN u.id AS id, u.username AS username
+                ORDER BY rand()
+                LIMIT $remaining
+            """, user_id=user_id, exclude_ids=list(exclude_ids), remaining=limit-len(suggestions))
+            for rec in random_fill_result:
+                if rec["id"] not in exclude_ids:
+                    suggestions[rec["id"]] = dict(rec)
+                    exclude_ids.add(rec["id"])
+
+        # 5. Trim to the limit and return results as a list
+        return list(suggestions.values())[:limit]
+
+
+def neo4j_are_users_mutually_following(user_a_id: str, user_b_id: str) -> bool:
+    """
+    Check if user A follows user B AND user B follows user A.
+    """
+    with driver.session() as session:
+        result = session.run("""
+            MATCH (a:User {id: $user_a}), (b:User {id: $user_b})
+            RETURN EXISTS( (a)-[:FOLLOWS]->(b) ) AND EXISTS( (b)-[:FOLLOWS]->(a) ) AS mutual_follow
+        """, user_a=user_a_id, user_b=user_b_id)
+        record = result.single()
+        return record["mutual_follow"] if record else False
+
+def neo4j_get_followers(user_id: str):
+    """
+    Get list of users who follow the given user_id.
+    """
+    with driver.session() as session:
+        result = session.run("""
+            MATCH (u:User)-[:FOLLOWS]->(target:User {id: $user_id})
+            RETURN u.id AS id, u.username AS username
+        """, user_id=user_id)
+        return [dict(record) for record in result]
+
+def neo4j_get_following(user_id: str):
+    """
+    Get list of users that the given user_id is following.
+    """
+    with driver.session() as session:
+        result = session.run("""
+            MATCH (u:User {id: $user_id})-[:FOLLOWS]->(following:User)
+            RETURN following.id AS id, following.username AS username
+        """, user_id=user_id)
+        return [dict(record) for record in result]
