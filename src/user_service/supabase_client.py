@@ -44,6 +44,17 @@ async def get_user_by_email(email: str) -> Optional[dict]:
         data = response.json()
         return data[0] if data else None
 
+async def get_user_profile_by_id(user_id: str) -> dict:
+    """
+    Fetch the user profile from Supabase users table by user_id.
+    """
+    async with httpx.AsyncClient() as client:
+        url = f"{SUPABASE_URL}/rest/v1/users"
+        params = {"id": f"eq.{user_id}"}
+        response = await client.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+        return data[0] if data else {}
 
 async def get_preferences_by_user_id(user_id: int) -> Optional[dict]:
     async with httpx.AsyncClient() as client:
@@ -411,3 +422,4 @@ async def get_current_active_session_id(user_id: str) -> str:
         if data and len(data) > 0:
             return data[0]
         return None
+

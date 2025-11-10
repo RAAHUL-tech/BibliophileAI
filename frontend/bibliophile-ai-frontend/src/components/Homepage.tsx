@@ -1,11 +1,10 @@
 import { useState, useEffect, type FC } from "react"
-import { Dropdown, Navbar, Container, Nav, Spinner, Alert } from "react-bootstrap"
+import { Dropdown, Navbar, Container, Nav, Spinner, Alert, Card, Button } from "react-bootstrap"
 import Profile from "./Profile"
 import UpdateGenrePreferences from "./UpdateGenrePreferences"
 import UpdateAuthorPreferences from "./UpdateAuthorPreferences"
 import BookView from "./BookView";
-import { FaUser, FaHeart, FaSignOutAlt } from "react-icons/fa"
-
+import { FaUser, FaHeart, FaSignOutAlt, FaUserPlus } from "react-icons/fa"
 
 interface BookRecommendation {
   id: string
@@ -23,6 +22,11 @@ interface UserPreferences {
   authors: string[]
 }
 
+interface UserSuggestion {
+  id: string
+  username: string
+}
+
 interface HomepageProps {
   token: string
   onLogout: () => void
@@ -37,6 +41,11 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
   const [loadingRecs, setLoadingRecs] = useState<boolean>(true)
   const [recsError, setRecsError] = useState<string | null>(null)
   const [selectedBook, setSelectedBook] = useState<BookRecommendation | null>(null);
+  
+  // Follower suggestions state
+  const [followerSuggestions, setFollowerSuggestions] = useState<UserSuggestion[]>([])
+  const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(true)
+  const [followingInProgress, setFollowingInProgress] = useState<Set<string>>(new Set())
 
   // Fetch recommendations on first load
   useEffect(() => {
@@ -60,6 +69,29 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
       }
     }
     fetchRecs()
+  }, [token])
+
+  // Fetch follower suggestions
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      setLoadingSuggestions(true)
+      try {
+        const res = await fetch("http://localhost:8000/api/v1/user/follower-suggestions?limit=10", {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setFollowerSuggestions(data.suggestions || [])
+        } else {
+          console.error("Failed to load follower suggestions")
+        }
+      } catch (err) {
+        console.error("Network error loading suggestions:", err)
+      } finally {
+        setLoadingSuggestions(false)
+      }
+    }
+    fetchSuggestions()
   }, [token])
 
   // Fetch preferences when opening preferences view
@@ -93,6 +125,33 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
     }
     fetchPreferences()
   }, [view, token])
+
+  // Handle follow user
+  const handleFollowUser = async (userId: string) => {
+    setFollowingInProgress(prev => new Set(prev).add(userId))
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/user/follow/${userId}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      if (res.ok) {
+        // Remove from suggestions after successful follow
+        setFollowerSuggestions(prev => prev.filter(u => u.id !== userId))
+      } else {
+        alert("Failed to follow user")
+      }
+    } catch (err) {
+      console.error("Error following user:", err)
+      alert("Network error while following user")
+    } finally {
+      setFollowingInProgress(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(userId)
+        return newSet
+      })
+    }
+  }
 
   // Save updated genre preferences
   const saveGenrePreferences = async (genres: string[]) => {
@@ -177,7 +236,6 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
                 <Dropdown.Item
                   onClick={() => {
                     onLogout()
-                    
                   }}
                   className="text-danger"
                 >
@@ -189,74 +247,126 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
         </Container>
       </Navbar>
 
-      <div className="container" style={{ marginTop: "75px" }}>
-  {selectedBook ? (
-    <BookView book={selectedBook} token={token} onBack={() => setSelectedBook(null)} />
-  ) : (
-    <>
-      {view === "profile" && (
-        <Profile token={token} onClose={() => setView("none")} />
-      )}
-      {view === "preferences" && preferences && (
-        <UpdateGenrePreferences
-          initialGenres={preferences.genres}
-          loading={loading}
-          onSave={saveGenrePreferences}
-          onCancel={() => setView("none")}
-        />
-      )}
-      {view === "author_preferences" && preferences && (
-        <UpdateAuthorPreferences
-          initialAuthors={preferences.authors}
-          loading={loading}
-          onSave={saveAuthorPreferences}
-          onCancel={() => setView("none")}
-          token={token}
-        />
-      )}
-      {view === "none" && (
-        <>
-          {loadingRecs ? (
-            <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "60vh" }}>
-              <Spinner animation="border" role="status" />
-              <span className="ms-3">Loading recommendations...</span>
-            </div>
-          ) : recsError ? (
-            <Alert variant="danger">{recsError}</Alert>
-          ) : (
-            <div>
-              <h2>Recommended for you</h2>
-              <div className="row">
-                {recommendations.map((book) => (
-                  <div key={book.id} className="col-md-4 col-lg-3 mb-4">
-                    <div
-                      className="card h-100"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => setSelectedBook(book)}
-                    >
-                      {book.thumbnail_url && (
-                        <img src={book.thumbnail_url} className="card-img-top" alt={book.title} />
-                      )}
-                      <div className="card-body">
-                        <h5 className="card-title">{book.title}</h5>
-                        <p className="card-text">
-                          {book.authors && book.authors.join(", ")}
-                        </p>
-                        <p className="card-text">
-                          {book.categories && book.categories.join(", ")}
-                        </p>
+      <div className="container-fluid" style={{ marginTop: "75px" }}>
+        <div className="row">
+          {/* Main Content Area */}
+          <div className="col-lg-9 col-md-8">
+            {selectedBook ? (
+              <BookView book={selectedBook} token={token} onBack={() => setSelectedBook(null)} />
+            ) : (
+              <>
+                {view === "profile" && (
+                  <Profile token={token} onClose={() => setView("none")} />
+                )}
+                {view === "preferences" && preferences && (
+                  <UpdateGenrePreferences
+                    initialGenres={preferences.genres}
+                    loading={loading}
+                    onSave={saveGenrePreferences}
+                    onCancel={() => setView("none")}
+                  />
+                )}
+                {view === "author_preferences" && preferences && (
+                  <UpdateAuthorPreferences
+                    initialAuthors={preferences.authors}
+                    loading={loading}
+                    onSave={saveAuthorPreferences}
+                    onCancel={() => setView("none")}
+                    token={token}
+                  />
+                )}
+                {view === "none" && (
+                  <>
+                    {loadingRecs ? (
+                      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "60vh" }}>
+                        <Spinner animation="border" role="status" />
+                        <span className="ms-3">Loading recommendations...</span>
                       </div>
+                    ) : recsError ? (
+                      <Alert variant="danger">{recsError}</Alert>
+                    ) : (
+                      <div>
+                        <h2>Recommended for you</h2>
+                        <div className="row">
+                          {recommendations.map((book) => (
+                            <div key={book.id} className="col-md-6 col-lg-4 mb-4">
+                              <div
+                                className="card h-100"
+                                style={{ cursor: "pointer" }}
+                                onClick={() => setSelectedBook(book)}
+                              >
+                                {book.thumbnail_url && (
+                                  <img src={book.thumbnail_url} className="card-img-top" alt={book.title} />
+                                )}
+                                <div className="card-body">
+                                  <h5 className="card-title">{book.title}</h5>
+                                  <p className="card-text">
+                                    {book.authors && book.authors.join(", ")}
+                                  </p>
+                                  <p className="card-text">
+                                    {book.categories && book.categories.join(", ")}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Right Sidebar - Follower Suggestions */}
+          <div className="col-lg-3 col-md-4">
+            <div className="sticky-top" style={{ top: "85px" }}>
+              <Card className="shadow-sm">
+                <Card.Header className="bg-primary text-white">
+                  <h5 className="mb-0">👥 Suggested Users</h5>
+                </Card.Header>
+                <Card.Body style={{ maxHeight: "70vh", overflowY: "auto" }}>
+                  {loadingSuggestions ? (
+                    <div className="text-center py-3">
+                      <Spinner animation="border" size="sm" />
+                      <p className="mt-2 text-muted small">Loading...</p>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ) : followerSuggestions.length === 0 ? (
+                    <p className="text-muted text-center">No suggestions available</p>
+                  ) : (
+                    <div className="d-flex flex-column gap-3">
+                      {followerSuggestions.map((user) => (
+                        <div
+                          key={user.id}
+                          className="d-flex justify-content-between align-items-center p-2 border rounded"
+                        >
+                          <span className="fw-medium">{user.username}</span>
+                          <Button
+                            size="sm"
+                            variant="outline-primary"
+                            onClick={() => handleFollowUser(user.id)}
+                            disabled={followingInProgress.has(user.id)}
+                          >
+                            {followingInProgress.has(user.id) ? (
+                              <Spinner animation="border" size="sm" />
+                            ) : (
+                              <>
+                                <FaUserPlus className="me-1" />
+                                Follow
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card.Body>
+              </Card>
             </div>
-          )}
-        </>
-      )}
-    </>
-  )}
-</div>
+          </div>
+        </div>
+      </div>
     </>
   )
 }

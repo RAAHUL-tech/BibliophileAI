@@ -63,6 +63,21 @@ spec:
             secretKeyRef:
               name: secret
               key: SQS_QUEUE_URL
+        - name: NEO4J_URI
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: NEO4J_URI
+        - name: NEO4J_USER
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: NEO4J_USER
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: NEO4J_PASSWORD
 
 ---
 apiVersion: v1
