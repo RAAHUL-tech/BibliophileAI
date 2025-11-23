@@ -1,6 +1,11 @@
 FROM apache/airflow:3.0.2
 
-COPY airflow-dags /opt/airflow/dags
-
+# Upgrade pip first
 RUN pip install --upgrade pip
-RUN pip install "apache-airflow-providers-cncf-kubernetes>=10.0.0"
+
+# Install required Python packages
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+# Copy DAGs into Airflow
+COPY airflow-dags /opt/airflow/dags

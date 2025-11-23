@@ -3,4 +3,7 @@ numpy
 pymongo
 scipy
 implicit
-pyarrow   
+pyarrow
+ray
+boto3
+fsspec
