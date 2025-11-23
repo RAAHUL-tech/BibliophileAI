@@ -38,6 +38,26 @@ spec:
             secretKeyRef:
               name: secret
               key: PINECONE_API_KEY
+        - name: S3_URI
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: S3_URI
+        - name: ALS_S3_PREFIX
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: ALS_S3_PREFIX
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: AWS_ACCESS_KEY_ID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: AWS_SECRET_ACCESS_KEY
 ---
 apiVersion: v1
 kind: Service
