@@ -8,4 +8,5 @@ pandas
 numpy
 scikit-learn
 boto3 
-pyarrow     
+pyarrow 
+neo4j    

@@ -1,0 +1,8 @@
+pandas
+numpy
+boto3
+pyarrow
+networkx
+node2vec
+neo4j
+ray
