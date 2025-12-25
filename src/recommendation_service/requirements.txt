@@ -9,4 +9,6 @@ numpy
 scikit-learn
 boto3 
 pyarrow 
-neo4j    
+neo4j   
+torch 
+pymongo[srv]

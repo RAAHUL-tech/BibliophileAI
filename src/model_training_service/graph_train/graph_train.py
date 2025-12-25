@@ -19,7 +19,7 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 s3_uri = os.environ["S3_URI"]
 if not s3_uri.endswith("/"):
     s3_uri += "/"
-
+GRAPH_PREFIX = os.getenv("GRAPH_S3_PREFIX")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 
@@ -151,8 +151,9 @@ def main():
     pr_scores = ray.get(pr_ref)
     embeddings = ray.get(emb_ref)
     
-    S3_PR_PATH = s3_uri + "global_pagerank.parquet"
-    S3_EMB_PATH = s3_uri + "node2vec_embeddings.parquet"
+    S3_PR_PATH = f"{s3_uri.rstrip('/')}/{GRAPH_PREFIX}/global_pagerank.parquet"
+    S3_EMB_PATH = f"{s3_uri.rstrip('/')}/{GRAPH_PREFIX}/node2vec_embeddings.parquet"
+    
     # PageRank scores
     pr_rows = [{"node_id": nid, "pr_score": score} for nid, score in pr_scores.items()]
     pr_df = pd.DataFrame(pr_rows)

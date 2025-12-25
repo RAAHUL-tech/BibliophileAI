@@ -1,0 +1,5 @@
+torch
+pymongo
+numpy
+ray
+boto3

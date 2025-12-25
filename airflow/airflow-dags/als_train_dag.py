@@ -20,7 +20,7 @@ with DAG(
 
     als_job = KubernetesPodOperator(
         namespace="default",
-        image="rahulkrish28/als-job:latest",
+        image="rahulkrish28/als-train:latest",
         cmds=["/app/entrypoint.sh"], 
         name="als-trainer",
         task_id="als_cf_train_task",
@@ -30,6 +30,7 @@ with DAG(
         env_vars={
             "MONGO_URI": Variable.get("MONGO_URI", default_var=""),
             "S3_URI": Variable.get("S3_URI", default_var=""),
+            "ALS_S3_PREFIX": Variable.get("ALS_S3_PREFIX", default_var="ALS_Train"),
             "AWS_ACCESS_KEY_ID": Variable.get("AWS_ACCESS_KEY_ID", default_var=""),
             "AWS_SECRET_ACCESS_KEY": Variable.get("AWS_SECRET_ACCESS_KEY", default_var=""),
             "RAY_ADDRESS": "local"

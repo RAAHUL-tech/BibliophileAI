@@ -608,7 +608,7 @@ async def submit_review(
             user_id=user_id,
             book_id=book_id,
             score=rating,
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.utcnow()
         )
 
         return {"message": "Review submitted successfully"}
@@ -780,7 +780,7 @@ async def page_turn(book_id: str, event: PageTurnEvent, current_user=Depends(get
             "user_id": current_user["id"],
             "item_id": book_id,
             "event_type": "page_turn",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.utcnow().isoformat()  ,
             "session_id": session_id,
             "duration": None,
             "metadata": {
