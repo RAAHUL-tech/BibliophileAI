@@ -73,6 +73,16 @@ spec:
             secretKeyRef:
               name: secret
               key: NEO4J_PASSWORD
+        - name: SASREC_S3_PREFIX
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: SASREC_S3_PREFIX
+        - name: MONGO_URI
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: MONGO_URI
 ---
 apiVersion: v1
 kind: Service

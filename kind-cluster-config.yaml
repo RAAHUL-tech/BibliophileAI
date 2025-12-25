@@ -20,4 +20,17 @@ nodes:
       nodeRegistration:
         kubeletExtraArgs:
           node-labels: "has-cpu=true"
-
+- role: worker
+  kubeadmConfigPatches:
+    - |
+      kind: JoinConfiguration
+      nodeRegistration:
+        kubeletExtraArgs:
+          node-labels: "has-cpu=true"
+- role: worker
+  kubeadmConfigPatches:
+    - |
+      kind: JoinConfiguration
+      nodeRegistration:
+        kubeletExtraArgs:
+          node-labels: "workload=sasrec-training"

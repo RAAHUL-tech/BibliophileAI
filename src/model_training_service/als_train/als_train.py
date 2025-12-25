@@ -16,6 +16,7 @@ ray.init(address="auto", ignore_reinit_error=True)
 s3_uri = os.environ["S3_URI"]
 if not s3_uri.endswith("/"):
     s3_uri += "/"
+ALS_PREFIX = os.getenv("ALS_S3_PREFIX")
 
 def get_s3_client():
     return boto3.client(
@@ -108,9 +109,9 @@ def upload_to_s3(local_file, s3_uri):
     s3.upload_file(local_file, bucket, key)
     logging.info(f"Uploaded {local_file} → {s3_uri}")
 
-S3_USER_FACTORS_PATH = s3_uri + "user_factors.parquet"
-S3_BOOK_FACTORS_PATH = s3_uri + "book_factors.parquet"
-S3_MODEL_PATH = s3_uri + "als_model.pkl"
+S3_USER_FACTORS_PATH = f"{s3_uri.rstrip('/')}/{ALS_PREFIX}/user_factors.parquet"
+S3_BOOK_FACTORS_PATH = f"{s3_uri.rstrip('/')}/{ALS_PREFIX}/book_factors.parquet"
+S3_MODEL_PATH = f"{s3_uri.rstrip('/')}/{ALS_PREFIX}/als_model.pkl"
 upload_to_s3(user_factors_file, S3_USER_FACTORS_PATH)
 upload_to_s3(book_factors_file, S3_BOOK_FACTORS_PATH)
 upload_to_s3(model_file, S3_MODEL_PATH)

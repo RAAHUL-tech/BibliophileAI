@@ -29,9 +29,10 @@ with DAG(
         get_logs=True,
         env_vars={
             "NEO4J_URI": Variable.get("NEO4J_URI", default_var=""),
-            "NEO4J_USER": Variable.get("NEO4J_USER", default_var=""),
+            "NEO4J_USER": Variable.get("NEO4J_USER", default_var="neo4j"),
             "NEO4J_PASSWORD": Variable.get("NEO4J_PASSWORD", default_var=""),
             "S3_URI": Variable.get("S3_URI", default_var=""),
+            "GRAPH_S3_PREFIX": Variable.get("GRAPH_S3_PREFIX", default_var="Graph_Train"),
             "AWS_ACCESS_KEY_ID": Variable.get("AWS_ACCESS_KEY_ID", default_var=""),
             "AWS_SECRET_ACCESS_KEY": Variable.get("AWS_SECRET_ACCESS_KEY", default_var=""),
             "RAY_ADDRESS": "local",
