@@ -2,6 +2,7 @@ from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.models import Variable
 from datetime import datetime, timedelta
+from kubernetes.client import models as k8s
 
 default_args = {
     "owner": "airflow",
@@ -27,6 +28,11 @@ with DAG(
         is_delete_operator_pod=True,
         in_cluster=True,
         get_logs=True,
+        # Resource limits to ensure sufficient memory
+        container_resources=k8s.V1ResourceRequirements(
+            requests={"memory": "1Gi", "cpu": "500m"},
+            limits={"memory": "4Gi", "cpu": "2"},
+        ),
         env_vars={
             "MONGO_URI": Variable.get("MONGO_URI", default_var=""),
             "REDIS_URL": Variable.get("REDIS_URL", default_var="redis://redis:6379/0"),

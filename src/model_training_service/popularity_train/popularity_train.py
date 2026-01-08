@@ -8,12 +8,11 @@ from pymongo import MongoClient
 import redis
 import boto3
 import io
+import torch
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Initialize Ray
-ray.init(address=os.getenv("RAY_ADDRESS", "local"))
 
 # Config from env
 MONGO_URI = os.environ["MONGO_URI"]
@@ -43,6 +42,8 @@ WINDOW_DAYS = {"7d": 7, "30d": 30, "90d": 90}
 SMOOTHING_M = 10.0
 
 POPULARITY_KEY_PATTERN = "popularity:trending:{window}"
+POPULARITY_GENRE_STATS_KEY = "popularity:genre_stats"
+POPULARITY_GLOBAL_MEAN_KEY = "popularity:global_mean"
 
 @ray.remote
 class PopularityWorker:
@@ -67,14 +68,14 @@ class PopularityWorker:
         lam = math.log(2.0) / half_life_days
         
         cursor = self.events_col.find(
-            {"item_id": {"$ne": None}, "event_type": {"$in": list(VALID_EVENTS)}, "timestamp": {"$gte": start_time}},
-            projection={"item_id": 1, "event_type": 1, "metadata": 1, "timestamp": 1}
+            {"item_id": {"$ne": None}, "event_type": {"$in": list(VALID_EVENTS)}, "received_at": {"$gte": start_time}},
+            projection={"item_id": 1, "event_type": 1, "metadata": 1, "received_at": 1}
         )
         
         scores, counts = {}, {}
         for ev in cursor:
             bid = str(ev["item_id"])
-            ts = ev["timestamp"]
+            ts = ev["received_at"]
             w = self.event_weight(ev)
             if w <= 0: continue
             
@@ -88,6 +89,8 @@ class PopularityWorker:
         return scores, counts
 
 def main():
+    # Initialize Ray (with ignore_reinit_error since entrypoint.sh also starts Ray)
+    ray.init(address=os.getenv("RAY_ADDRESS", "local"))
     logger.info("Starting Popularity Training with Ray...")
     
     # Create parallel workers
@@ -95,16 +98,18 @@ def main():
     
     # Compute all windows in parallel
     futures = []
+    labels = []
     for label, half_life in HALF_LIVES.items():
         window_days = WINDOW_DAYS[label]
         worker = workers[len(futures) % len(workers)]
         future = worker.compute_window.remote(window_days, half_life)
-        futures.append((label, future))
+        futures.append(future)
+        labels.append(label)
     
     # Wait for all windows
     results = ray.get(futures)
-    per_window_scores = {label: result[0] for label, result in results}
-    per_window_counts = {label: result[1] for label, result in results}
+    per_window_scores = {label: result[0] for label, result in zip(labels, results)}
+    per_window_counts = {label: result[1] for label, result in zip(labels, results)}
     
     # Multi-window aggregation
     all_books = set().union(*[s.keys() for s in per_window_scores.values()])
@@ -133,7 +138,7 @@ def main():
     save_to_s3(smoothed, interaction_counts)
     
     logger.info(f"Completed: {len(smoothed)} books computed and stored")
-    ray.shutdown()
+    # Note: Ray shutdown is handled by entrypoint.sh
 
 def fetch_book_genres(book_ids: Iterable[str]) -> Dict[str, str]:
     cur = books_col.find(
@@ -203,7 +208,6 @@ def save_to_s3(smoothed_scores: Dict[str, float], counts: Dict[str, int]):
         "window_weights": WINDOW_WEIGHTS
     }
     
-    import torch
     buf = io.BytesIO()
     torch.save(checkpoint, buf)
     buf.seek(0)

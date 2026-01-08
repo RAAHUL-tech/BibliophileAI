@@ -97,3 +97,9 @@ spec:
             secretKeyRef:
               name: secret
               key: MONGO_URI
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: REDIS_URL
+

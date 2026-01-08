@@ -2,3 +2,4 @@ pymongo
 redis
 ray
 boto3
+torch
