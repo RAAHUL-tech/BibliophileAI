@@ -1,3 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: recommendation-service
+spec:
+  selector:
+    app: recommendation
+  ports:
+  - port: 8001                    
+    targetPort: 8001 
+    protocol: TCP            
+  type: ClusterIP
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -83,15 +97,3 @@ spec:
             secretKeyRef:
               name: secret
               key: MONGO_URI
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: recommendation-service
-spec:
-  selector:
-    app: recommendation
-  ports:
-  - port: 8001                    
-    targetPort: 8001             
-  type: ClusterIP
