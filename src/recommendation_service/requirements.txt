@@ -12,3 +12,6 @@ pyarrow
 neo4j   
 torch 
 pymongo[srv]
+redis
+boto3
+torch
