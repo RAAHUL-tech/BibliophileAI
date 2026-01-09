@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 MAX_LEN = 100
 # keep only these event types
 VALID_EVENTS = {"read", "page_turn", "review", "bookmark_add"}
-
+logging.basicConfig(level=logging.INFO)
 
 def get_mongo_client() -> MongoClient:
     """Create Mongo client with retry and Stable API."""

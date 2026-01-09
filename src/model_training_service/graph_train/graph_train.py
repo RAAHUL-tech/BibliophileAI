@@ -23,6 +23,7 @@ GRAPH_PREFIX = os.getenv("GRAPH_S3_PREFIX")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 
+logging.basicConfig(level=logging.INFO)
 driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
 
 s3 = boto3.client(
@@ -164,6 +165,10 @@ def main():
     upload_parquet(emb_df, S3_EMB_PATH)
 
     print("Graph analytics completed and uploaded to S3.")
+    logging.info("Training workflow completed & uploaded to S3 successfully!")
+    # ---- Stop Ray cleanly to prevent Airflow duplicate task run ----
+    ray.shutdown()
+    logging.info("Ray cluster shut down. Exiting container.")
 
 
 if __name__ == "__main__":

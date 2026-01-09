@@ -26,7 +26,6 @@ VALID_EVENTS = {"read", "page_turn", "review", "bookmark_add"}
 # Mongo + Redis clients
 mongo_client = MongoClient(MONGO_URI)
 events_col = mongo_client["click_stream"]["events"]
-books_col = mongo_client["metadata"]["books"]
 redis_client = redis.from_url(REDIS_URL)
 
 s3 = boto3.client(
@@ -42,7 +41,7 @@ WINDOW_DAYS = {"7d": 7, "30d": 30, "90d": 90}
 SMOOTHING_M = 10.0
 
 POPULARITY_KEY_PATTERN = "popularity:trending:{window}"
-POPULARITY_GENRE_STATS_KEY = "popularity:genre_stats"
+POPULARITY_GLOBAL_STD_KEY = "popularity:global_std"
 POPULARITY_GLOBAL_MEAN_KEY = "popularity:global_mean"
 
 @ray.remote
@@ -138,46 +137,35 @@ def main():
     save_to_s3(smoothed, interaction_counts)
     
     logger.info(f"Completed: {len(smoothed)} books computed and stored")
-    # Note: Ray shutdown is handled by entrypoint.sh
-
-def fetch_book_genres(book_ids: Iterable[str]) -> Dict[str, str]:
-    cur = books_col.find(
-        {"id": {"$in": [str(bid) for bid in book_ids]}},
-        projection={"id": 1, "genre": 1}
-    )
-    return {str(doc["id"]): doc.get("genre", "unknown") for doc in cur}
+    logging.info("Training workflow completed & uploaded to S3 successfully!")
+    # ---- Stop Ray cleanly to prevent Airflow duplicate task run ----
+    ray.shutdown()
+    logging.info("Ray cluster shut down. Exiting container.")
 
 def normalize_and_smooth(raw_scores: Dict[str, float], interaction_counts: Dict[str, int]) -> Dict[str, float]:
-    genres = fetch_book_genres(raw_scores.keys())
+    """Global normalization + interaction-weighted smoothing"""
     
-    by_genre = {}
-    for bid, score in raw_scores.items():
-        g = genres.get(bid, "unknown")
-        by_genre.setdefault(g, []).append(score)
-    
-    genre_stats = {}
-    for g, vals in by_genre.items():
-        if not vals: continue
-        mu = sum(vals) / len(vals)
-        var = sum((v - mu) ** 2 for v in vals) / max(len(vals) - 1, 1)
-        sigma = math.sqrt(var) if var > 0 else 1.0
-        genre_stats[g] = (mu, sigma)
-        redis_client.hset(POPULARITY_GENRE_STATS_KEY, f"{g}:mean", mu)
-        redis_client.hset(POPULARITY_GENRE_STATS_KEY, f"{g}:std", sigma)
-    
+    # Global statistics
     all_vals = list(raw_scores.values())
-    mu_global = sum(all_vals) / len(all_vals) if all_vals else 0.0
+    if not all_vals:
+        return {}
+    mu_global = sum(all_vals) / len(all_vals)
+    var = sum((v - mu_global) ** 2 for v in all_vals) / max(len(all_vals) - 1, 1)
+    sigma_global = math.sqrt(var) if var > 0 else 1.0   
+    # Cache global stats in Redis
     redis_client.set(POPULARITY_GLOBAL_MEAN_KEY, mu_global)
-    
+    redis_client.set(POPULARITY_GLOBAL_STD_KEY, sigma_global)    
+    # Z-score normalization + interaction-weighted smoothing
     smoothed = {}
     for bid, raw in raw_scores.items():
-        g = genres.get(bid, "unknown")
-        mu_g, sigma_g = genre_stats.get(g, (mu_global, 1.0))
-        z = (raw - mu_g) / sigma_g
+        # Global Z-score
+        z = (raw - mu_global) / sigma_global
+        
+        # Interaction-weighted smoothing (more interactions = less smoothing)
         n_b = interaction_counts.get(bid, 0)
-        smooth = (n_b * z + SMOOTHING_M * mu_global) / (n_b + SMOOTHING_M)
+        smooth = (n_b * z + SMOOTHING_M * 0.0) / (n_b + SMOOTHING_M)  # Smooth toward 0
+        
         smoothed[bid] = smooth
-    
     return smoothed
 
 def store_popularity_in_redis(window_label: str, scores: Dict[str, float]):
