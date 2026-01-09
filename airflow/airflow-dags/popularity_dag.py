@@ -16,7 +16,7 @@ with DAG(
     schedule="@hourly",  # Every hour
     start_date=datetime.utcnow() - timedelta(days=1),
     catchup=False,
-    tags=["recommendation", "popularity", "ray"],
+    tags=["recommendation", "popularity"],
 ) as dag:
 
     popularity_job = KubernetesPodOperator(
