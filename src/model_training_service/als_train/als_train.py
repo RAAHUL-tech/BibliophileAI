@@ -11,7 +11,7 @@ from pymongo.server_api import ServerApi
 import scipy.sparse as sp
 
 logging.basicConfig(level=logging.INFO)
-ray.init(address="auto", ignore_reinit_error=True)
+ray.init(address=os.getenv("RAY_ADDRESS", "local"))
 
 s3_uri = os.environ["S3_URI"]
 if not s3_uri.endswith("/"):
@@ -21,7 +21,6 @@ ALS_PREFIX = os.getenv("ALS_S3_PREFIX")
 def get_s3_client():
     return boto3.client(
         "s3",
-        region_name=os.getenv("AWS_REGION", "us-east-2"),
         aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
         aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
     )

@@ -200,7 +200,7 @@ async def recommend_combined(
     pop_unique, pop_unique_scores = filter_unique_books(pop_book_ids, pop_scores,
                                                        cb_set | set(als_unique) | set(graph_unique) | set(session_unique))
     
-    # 3. Take equal share from each source (5 sources now)
+    # 3. Take equal share from each source
     target_total = 50
     num_sources = 5  # CB + ALS + Graph + Session + Popularity
     target_each = max(1, target_total // num_sources)
