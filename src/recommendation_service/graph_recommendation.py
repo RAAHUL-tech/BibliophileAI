@@ -225,5 +225,5 @@ def graph_recommend_books(user_id: str, top_k: int = 50):
 
     # sort by score desc, take top_k
     book_scores.sort(key=lambda x: x[1], reverse=True)
-    print(f"Graph Recommendations for user {user_id}: {book_scores[:top_k]}")
+    print(f"3. Graph Recommendations for user {user_id}: {book_scores[:top_k]}")
     return book_scores[:top_k]

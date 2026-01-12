@@ -102,4 +102,14 @@ spec:
             secretKeyRef:
               name: secret
               key: REDIS_URL
+        - name: LINUCB_S3_PREFIX
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: LINUCB_S3_PREFIX
+        - name: GRAPH_S3_PREFIX
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: GRAPH_S3_PREFIX
 

@@ -31,5 +31,5 @@ async def dense_vector_recommendation(user_id: str, top_k: int = 50) -> Tuple[Li
         if book_id is not None and score is not None:
             book_ids.append(book_id)
             scores.append(score)
-    print(f"CB Recommendations for user {user_id}: {book_ids} with scores {scores}")
+    print(f"1. CB Recommendations for user {user_id}: {book_ids} with scores {scores}")
     return book_ids, scores

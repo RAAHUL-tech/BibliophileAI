@@ -50,7 +50,7 @@ def get_s3_popularity_fallback(window: str, top_k: int) -> Tuple[List[str], List
         
         book_ids = [book_id for book_id, _ in top_items]
         scores = [float(score) for _, score in top_items]
-        
+        print(f"S3 fallback loaded {len(book_ids)} books for window {window} with scores {scores}")
         return book_ids, scores
         
     except (ClientError, FileNotFoundError, KeyError, RuntimeError) as e:
@@ -78,7 +78,7 @@ async def get_popularity_recommendations(
             if books_scores:
                 book_ids = [book_id_bytes.decode("utf-8") for book_id_bytes, _ in books_scores]
                 scores = [float(score) for _, score in books_scores]
-                print(f"Redis hit: {len(book_ids)} books for window {window}")
+                print(f"Redis hit: {len(book_ids)} books for window {window} with scores {scores}")
                 return book_ids, scores
     except Exception as e:
         print(f"Redis failed: {e}")
