@@ -39,5 +39,5 @@ async def recommend_als_books(user_id: str, top_k: int = 50) -> Tuple[List[str],
     top_indices = np.argsort(scores)[::-1][:top_k]
     recommended_books = book_ids[top_indices]
     recommended_scores = scores[top_indices]
-    print(f"ALS Recommendations for user {user_id}: {recommended_books} with scores {recommended_scores}")
+    print(f"2. ALS Recommendations for user {user_id}: {recommended_books} with scores {recommended_scores}")
     return recommended_books.tolist(), recommended_scores.tolist()

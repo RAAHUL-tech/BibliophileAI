@@ -2,7 +2,7 @@ import os
 import io
 import time
 import logging
-from typing import List, Optional, Set
+from typing import List, Set, Tuple
 
 import torch
 import boto3
@@ -115,7 +115,7 @@ def _get_user_items(user_id: str, history_len: int = 20) -> List[str]:
 
 # ---------------- main recommendation API ----------------
 
-def recommend_for_session(user_id: str, top_k: int = 20) -> List[str]:
+def recommend_for_session(user_id: str, top_k: int = 20) -> Tuple[List[str], List[float]]:
     _load_model_if_needed()
 
     items = _get_user_items(user_id)
@@ -144,6 +144,14 @@ def recommend_for_session(user_id: str, top_k: int = 20) -> List[str]:
             return []
         topk = torch.topk(logits, k=k)
         indices = topk.indices.tolist()
+        logits = topk.values  # shape: [K]
+        min_v = logits.min()
+        max_v = logits.max()
+        if max_v > min_v:
+            scores = (logits - min_v) / (max_v - min_v)
+        else:
+            scores = torch.zeros_like(logits)
+        scores = scores.tolist()
         recs = [_id2item[i] for i in indices if i in _id2item]
-        print(f"[SASRec] recs for user={user_id}: {recs}")
-        return recs
+        print(f"4. [SASRec] recs for user={user_id}: {recs} with scores {scores}")
+        return recs, scores
