@@ -1,11 +1,13 @@
+from datetime import datetime 
 import os
 import redis
 import httpx
 import jwt
 import random
 import asyncio
+import logging
 from typing import Optional, List, Dict, Any, Tuple
-from fastapi import FastAPI, Depends, Security, HTTPException, Query
+from fastapi import FastAPI, Depends, Security, HTTPException, Query, Request
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from collections import defaultdict
@@ -15,12 +17,15 @@ from graph_recommendation import graph_recommend_books
 from sasrec_inference import recommend_for_session
 from popularity_recommendation import get_popularity_recommendations, get_s3_popularity_fallback
 from linucb_inference import linucb_ranker
+from feature_engineering.feature_service import feature_service
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 POPULARITY_WINDOWS = ["multi", "7d", "30d", "90d"]
 POPULARITY_KEY_PATTERN = "popularity:trending:{window}"
@@ -161,6 +166,7 @@ async def get_global_popularity_recommendations(
 @app.get("/api/v1/recommend/combined")
 async def recommend_combined(
     current_user: dict = Depends(get_current_user),
+    request: Request = None
 ):
     user_id = str(current_user["id"])
 
@@ -227,7 +233,13 @@ async def recommend_combined(
     add_scores(linucb_final, linucb_final_scores, "linucb")
     print(f"Combined unique book IDs before shuffling: {len(combined_scores_map)}")
 
-    
+    all_book_ids = list(combined_scores_map.keys())
+    session_context = await build_session_context(current_user, request)
+    features = await feature_service.engineer_features_batch(
+        user_id, all_book_ids, combined_scores_map, session_context
+    )
+    print(f"Engineered features for {len(features)} books")
+    print("Features:", features)
     # 4. Shuffle for serendipity
     all_book_ids = list(combined_scores_map.keys())
     random.shuffle(all_book_ids)
@@ -254,3 +266,35 @@ def add_scores(book_ids, scores, source_name):
     for bid, score in zip(book_ids, scores):
         combined_scores_map[bid][f"{source_name}_score"] = float(score)
 
+async def build_session_context(current_user: dict, request: Request = None) -> Dict[str, Any]:
+    """
+    Build complete session context for feature engineering
+    Used in: feature_service.engineer_features_batch()
+    """
+    user_id = str(current_user["id"])
+    session_context = {
+        # Device detection (from headers/user-agent)
+        "device": _detect_device(request),
+        
+        # Current hour (time-based features)
+        "hour_of_day": datetime.now().hour,
+        
+        # User agent details
+        "user_agent": request.headers.get("user-agent", "") if request else "",
+    }
+    
+    logger.info(f"Session context for {user_id}: {session_context}")
+    return session_context
+
+
+def _detect_device(request: Request = None) -> str:
+    """Detect device type from User-Agent"""
+    if not request:
+        return "desktop"
+    
+    ua = request.headers.get("user-agent", "").lower()
+    if any(x in ua for x in ["mobile", "android", "iphone", "ipad"]):
+        return "mobile"
+    elif "tablet" in ua or "ipad" in ua:
+        return "tablet"
+    return "desktop"

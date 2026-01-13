@@ -138,20 +138,26 @@ def recommend_for_session(user_id: str, top_k: int = 20) -> Tuple[List[str], Lis
         logits[0] = -1e9
         for idx in seq_ids:
             logits[idx] = -1e9
-
-        k = min(top_k, logits.size(0) - 1)
+        valid_logits = logits[1:]  # Skip padding token 0
+        valid_item_ids = torch.arange(1, len(logits), device=logits.device)
+        k = min(top_k, valid_logits.size(0))
         if k <= 0:
-            return []
-        topk = torch.topk(logits, k=k)
+            return [], []
+        topk = torch.topk(valid_logits, k=k)
         indices = topk.indices.tolist()
-        logits = topk.values  # shape: [K]
-        min_v = logits.min()
-        max_v = logits.max()
-        if max_v > min_v:
-            scores = (logits - min_v) / (max_v - min_v)
-        else:
-            scores = torch.zeros_like(logits)
-        scores = scores.tolist()
-        recs = [_id2item[i] for i in indices if i in _id2item]
-        print(f"4. [SASRec] recs for user={user_id}: {recs} with scores {scores}")
-        return recs, scores
+        indices_tensor = torch.tensor(indices, device=topk.indices.device)
+        global_indices = (indices_tensor + 1).tolist()
+        recs = []
+        scores = []
+        for i, global_idx in enumerate(global_indices):
+            if global_idx in _id2item:
+                recs.append(_id2item[global_idx])
+                scores.append(float(topk.values[i]))
+        
+        if scores:
+            min_v, max_v = min(scores), max(scores)
+            if max_v > min_v:
+                scores = [(s - min_v) / (max_v - min_v) for s in scores]
+        
+        print(f"4. [SASRec] user={user_id}: {recs} with scores {scores}")
+        return recs, scores 
