@@ -15,3 +15,5 @@ pymongo[srv]
 redis
 boto3
 torch
+supabase
+feast

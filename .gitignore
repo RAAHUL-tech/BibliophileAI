@@ -63,3 +63,4 @@ models/
 # Ignore secrets files
 kubernetes/secrets.yaml
 frontend/bibliophile-ai-frontend/.env
+src/recommendation_service/feature_engineering/feature_repo/data

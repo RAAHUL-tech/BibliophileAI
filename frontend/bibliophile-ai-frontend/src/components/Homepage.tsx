@@ -54,7 +54,11 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
     const fetchRecs = async () => {
       try {
         const res = await fetch("http://localhost:8001/api/v1/recommend/combined", {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { 
+            Authorization: `Bearer ${token}` ,
+            'Content-Type': 'application/json',
+            'User-Agent': navigator.userAgent
+          }
         })
         if (res.ok) {
           const data = await res.json()
