@@ -12,16 +12,9 @@ user_book = Entity(
 # Offline Parquet source (S3)
 book_features_parquet = FileSource(
     file_format=ParquetFormat(),
-    path="s3://bibliophile-ai-feast/features/",  
+    path="s3://bibliophile-ai-feast/features/*/*/*/user_book_features.parquet",  
     timestamp_field="timestamp"
 )
-
-# Online Redis push source
-online_source = PushSource(
-    name="online_user_book_features",
-    batch_source=book_features_parquet,
-)
-
 
 # MAIN 29-FEATURE VIEW
 user_book_features = FeatureView(
@@ -63,5 +56,6 @@ user_book_features = FeatureView(
         Field(name="intra_list_diversity", dtype=Float32),
     ],
     source=book_features_parquet,
-    tags={"team": "recsys"}
+    tags={"team": "recsys"},
+    online=True
 )
