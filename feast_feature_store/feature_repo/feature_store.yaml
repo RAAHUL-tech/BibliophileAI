@@ -1,0 +1,17 @@
+project: bibliophileai
+provider: local
+
+# S3 Registry for shared access
+registry: s3://bibliophile-ai-feast/registry/registry.db
+
+# Redis for online features
+online_store:
+  type: redis
+  connection_string: localhost:6379
+  key_ttl_seconds: 86400
+
+# S3 for offline features
+offline_store:
+  type: file
+
+entity_key_serialization_version: 3
