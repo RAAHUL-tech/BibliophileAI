@@ -215,54 +215,54 @@ Core ML engine that generates personalized book recommendations using a multi-mo
 
 ```mermaid
 graph TB
-    subgraph "API Endpoints"
-        Combined[/api/v1/recommend/combined]
-        Content[/api/v1/recommend/content]
-        Graph[/api/v1/recommend/graph]
-        Session[/api/v1/recommend/session]
-        Popularity[/api/v1/recommend/popularity]
+    subgraph API["API Endpoints"]
+        ACombined["/api/v1/recommend/combined"]
+        AContent["/api/v1/recommend/content"]
+        AGraph["/api/v1/recommend/graph"]
+        ASession["/api/v1/recommend/session"]
+        APopularity["/api/v1/recommend/popularity"]
     end
-    
-    subgraph "Algorithm Modules"
-        CB[Content-Based<br/>Pinecone]
-        CF[Collaborative Filtering<br/>ALS]
-        GR[Graph Recommendation<br/>Neo4j]
-        SR[SASRec<br/>Session-Based]
-        POP[Popularity<br/>Time-Decayed]
-        LIN[LinUCB<br/>Contextual Bandit]
+
+    subgraph Algo["Algorithm Modules"]
+        CB["Content-Based<br/>Pinecone"]
+        CF["Collaborative Filtering<br/>ALS"]
+        GR["Graph Recommendation<br/>Neo4j"]
+        SR["SASRec<br/>Session-Based"]
+        POP["Popularity<br/>Time-Decayed"]
+        LIN["LinUCB<br/>Contextual Bandit"]
     end
-    
-    subgraph "Feature Engineering"
-        FE[Feature Service<br/>50+ Features]
+
+    subgraph FEBlock["Feature Engineering"]
+        FE["Feature Service<br/>20+ Features"]
     end
-    
-    subgraph "Ranking"
-        XGB[XGBoost<br/>LambdaRank]
+
+    subgraph Rank["Ranking"]
+        XGB["XGBoost<br/>LambdaRank"]
     end
-    
-    Combined --> CB
-    Combined --> CF
-    Combined --> GR
-    Combined --> SR
-    Combined --> POP
-    Combined --> LIN
-    
+
+    ACombined --> CB
+    ACombined --> CF
+    ACombined --> GR
+    ACombined --> SR
+    ACombined --> POP
+    ACombined --> LIN
+
     CB --> FE
     CF --> FE
     GR --> FE
     SR --> FE
     POP --> FE
     LIN --> FE
-    
+
     FE --> XGB
-    XGB --> Combined
-    
-    Content --> CB
-    Graph --> GR
-    Session --> SR
-    Popularity --> POP
-    
-    style Combined fill:#4CAF50,color:#fff
+    XGB --> ACombined
+
+    AContent --> CB
+    AGraph --> GR
+    ASession --> SR
+    APopularity --> POP
+
+    style ACombined fill:#4CAF50,color:#fff
     style XGB fill:#FF9800,color:#fff
 ```
 
