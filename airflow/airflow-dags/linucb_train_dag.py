@@ -28,6 +28,7 @@ with DAG(
         is_delete_operator_pod=True,
         in_cluster=True,
         get_logs=True,
+        # Resource limits to ensure sufficient memory
         container_resources=k8s.V1ResourceRequirements(
             requests={"memory": "1Gi", "cpu": "500m"},
             limits={"memory": "4Gi", "cpu": "2"},    

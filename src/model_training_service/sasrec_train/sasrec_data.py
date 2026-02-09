@@ -55,7 +55,6 @@ def load_sessions_for_training(
     if days_back is None:
         days_back = int(os.getenv("SASREC_DAYS_BACK", "30"))
     
-    # assume `timestamp` is a MongoDB Date field
     cutoff = datetime.utcnow() - timedelta(days=days_back)
     
     logging.info(f"Loading sessions from MongoDB (last {days_back} days, cutoff: {cutoff})")
@@ -99,7 +98,6 @@ def load_sessions_for_training(
                 },
             }
         },
-        # optional, or remove this entirely
         {"$match": {"last_timestamp": {"$gte": cutoff}}},
     ]
 

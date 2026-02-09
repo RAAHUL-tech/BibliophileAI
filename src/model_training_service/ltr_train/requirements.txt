@@ -1,0 +1,8 @@
+pandas
+numpy
+xgboost
+pymongo
+boto3
+feast
+s3fs
+redis

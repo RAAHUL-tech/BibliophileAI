@@ -169,13 +169,17 @@ def normalize_and_smooth(raw_scores: Dict[str, float], interaction_counts: Dict[
     return smoothed
 
 def store_popularity_in_redis(window_label: str, scores: Dict[str, float]):
+    """
+    Write global popularity scores to Redis. Key: popularity:trending:{window}.
+    Recommendation service reads this key for all users (no per-user popularity storage).
+    """
     key = POPULARITY_KEY_PATTERN.format(window=window_label)
     pipe = redis_client.pipeline()
     pipe.delete(key)
     if scores:
         pipe.zadd(key, {bid: score for bid, score in scores.items()})
     pipe.execute()
-    redis_client.expire(key, 3600)
+    redis_client.expire(key, 365 * 24 * 3600)
 
 def save_to_s3(smoothed_scores: Dict[str, float], counts: Dict[str, int]):
     def _parse_s3_uri(uri: str):
