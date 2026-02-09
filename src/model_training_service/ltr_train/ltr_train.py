@@ -1,18 +1,17 @@
 import os
 import sys
+import io
 import logging
+import tempfile
 from datetime import datetime, timedelta
 from collections import defaultdict
 import pandas as pd
 import numpy as np
 from pymongo import MongoClient
 import boto3
-import io
 from feast import FeatureStore
 import xgboost as xgb
-import boto3
-from io import BytesIO
-import tempfile
+import ray
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -38,10 +37,11 @@ FEATURE_COLS = [
 ]
 
 
-def get_relevance_labels_from_mongo() -> pd.DataFrame:
+@ray.remote
+def load_labels() -> pd.DataFrame:
     """
     Aggregate (user_id, item_id) -> relevance 0-5 from click_stream.events.
-    Returns DataFrame with columns: user_id, book_id, user_book, relevance, event_timestamp.
+    Returns DataFrame with columns: user_id, book_id, user_book, relevance, timestamp.
     """
     client = MongoClient(MONGO_URI)
     col = client["click_stream"]["events"]
@@ -77,7 +77,6 @@ def get_relevance_labels_from_mongo() -> pd.DataFrame:
             elif t == "read":
                 rel = max(rel, 4)
             elif t == "page_turn":
-                # Proxy: many page_turns -> 3, else 2
                 count = sum(1 for x in events if (x.get("type")) == "page_turn")
                 rel = max(rel, 3 if count >= 5 else 2)
             elif t == "bookmark_add":
@@ -90,87 +89,13 @@ def get_relevance_labels_from_mongo() -> pd.DataFrame:
             "timestamp": last_at,
         })
     if not rows:
-        logger.warning("No events found for relevance labels")
         return pd.DataFrame()
     return pd.DataFrame(rows)
 
 
-def get_historical_features_from_feast(entity_df: pd.DataFrame) -> pd.DataFrame:
-    """Load user-book features from Feast offline store (S3 Parquet).
-    Note: Feast may use registry/materialization metadata, so it can return data from
-    previously known parquet paths even after you delete files. For latest S3 state,
-    use get_historical_features_direct_s3() instead."""
-
-    repo_path = FEAST_REPO_PATH
-    if not os.path.isdir(repo_path):
-        logger.warning(f"Feast repo not found at {repo_path}")
-        return pd.DataFrame()
-
-    # Feast requires event_timestamp with datetime dtype
-    entity_df = entity_df[["user_book", "timestamp"]].drop_duplicates()
-
-    if not pd.api.types.is_datetime64_any_dtype(entity_df["timestamp"]):
-        entity_df["timestamp"] = pd.to_datetime(entity_df["timestamp"], utc=True)
-
-    store = FeatureStore(repo_path=repo_path)
-
-    feature_names = [
-        "user_book_features:query_id",
-        "user_book_features:user_id",
-        "user_book_features:book_id",
-        "user_book_features:retrieval_0",
-        "user_book_features:retrieval_1",
-        "user_book_features:retrieval_2",
-        "user_book_features:retrieval_3",
-        "user_book_features:retrieval_4",
-        "user_book_features:retrieval_5",
-        "user_book_features:genre_match_count",
-        "user_book_features:author_match",
-        "user_book_features:language_match",
-        "user_book_features:avg_rating",
-        "user_book_features:user_rating",
-        "user_book_features:avg_rating_diff",
-        "user_book_features:rating_count",
-        "user_book_features:user_pref_strength",
-        "user_book_features:friend_reads_count",
-        "user_book_features:friend_avg_rating",
-        "user_book_features:author_following",
-        "user_book_features:mutual_likes",
-        "user_book_features:social_proximity",
-        "user_book_features:session_position",
-        "user_book_features:session_genre_drift",
-        "user_book_features:time_since_last_action",
-        "user_book_features:is_mobile",
-        "user_book_features:is_desktop",
-        "user_book_features:is_tablet",
-        "user_book_features:session_length",
-        "user_book_features:global_pop_rank",
-        "user_book_features:trending_score",
-        "user_book_features:intra_list_diversity",
-    ]
-
-    try:
-        df = (
-            store.get_historical_features(
-                entity_df=entity_df,
-                features=feature_names
-            )
-            .to_df()
-        )
-        return df
-
-    except Exception as e:
-        logger.warning(f"Feast get_historical_features failed: {e}")
-        return pd.DataFrame()
-
-
-def get_historical_features_direct_s3(entity_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Read feature parquet directly from S3 by listing the bucket at runtime.
-    This always reflects current S3 state (no registry/cache), so you get the
-    latest feature data. Use this when you want only the parquet files that
-    exist now (e.g. after clearing old files).
-    """ 
+@ray.remote
+def load_features_direct_s3(entity_df: pd.DataFrame) -> pd.DataFrame:
+    """Read feature parquet directly from S3; returns merged feature DataFrame for entity_df."""
     bucket = FEAST_S3_BUCKET
     prefix = "features/"
     needed = ["user_book", "user_id", "book_id", "query_id"] + FEATURE_COLS
@@ -200,38 +125,65 @@ def get_historical_features_direct_s3(entity_df: pd.DataFrame) -> pd.DataFrame:
                 df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
                 frames.append(df)
         if not frames:
-            logger.warning("No parquet files found under s3://%s/%s", bucket, prefix)
             return pd.DataFrame()
         combined = pd.concat(frames, ignore_index=True)
-        # Keep latest row per user_book (most recent timestamp)
         combined = combined.sort_values("timestamp").drop_duplicates(subset=["user_book"], keep="last")
         want = [c for c in needed if c in combined.columns]
         if len(want) < len(needed):
             missing = set(needed) - set(combined.columns)
-            logger.warning("Direct S3 parquet missing columns: %s", missing)
+            logging.warning("Direct S3 parquet missing columns: %s", missing)
         out = entity_df[["user_book"]].merge(combined, on="user_book", how="inner")
-        logger.info("Direct S3 read: %d parquet file(s), %d rows after merge with labels", len(frames), len(out))
+        logging.info("Direct S3 read: %d parquet file(s), %d rows after merge", len(frames), len(out))
         return out
     except Exception as e:
-        logger.warning("Direct S3 feature read failed: %s", e)
+        logging.warning("Direct S3 feature read failed: %s", e)
         return pd.DataFrame()
 
 
-def train_and_save(train_df: pd.DataFrame):
-    """Train XGBoost rank:ndcg and save to S3."""
+@ray.remote
+def load_features_feast(entity_df: pd.DataFrame) -> pd.DataFrame:
+    """Load user-book features from Feast offline store (S3 Parquet)."""
+    if not os.path.isdir(FEAST_REPO_PATH):
+        return pd.DataFrame()
+    entity_df = entity_df[["user_book", "timestamp"]].drop_duplicates()
+    if not pd.api.types.is_datetime64_any_dtype(entity_df["timestamp"]):
+        entity_df["timestamp"] = pd.to_datetime(entity_df["timestamp"], utc=True)
+    store = FeatureStore(repo_path=FEAST_REPO_PATH)
+    feature_names = [
+        "user_book_features:query_id", "user_book_features:user_id", "user_book_features:book_id",
+        "user_book_features:retrieval_0", "user_book_features:retrieval_1", "user_book_features:retrieval_2",
+        "user_book_features:retrieval_3", "user_book_features:retrieval_4", "user_book_features:retrieval_5",
+        "user_book_features:genre_match_count", "user_book_features:author_match", "user_book_features:language_match",
+        "user_book_features:avg_rating", "user_book_features:user_rating", "user_book_features:avg_rating_diff",
+        "user_book_features:rating_count", "user_book_features:user_pref_strength",
+        "user_book_features:friend_reads_count", "user_book_features:friend_avg_rating",
+        "user_book_features:author_following", "user_book_features:mutual_likes", "user_book_features:social_proximity",
+        "user_book_features:session_position", "user_book_features:session_genre_drift",
+        "user_book_features:time_since_last_action", "user_book_features:is_mobile", "user_book_features:is_desktop",
+        "user_book_features:is_tablet", "user_book_features:session_length", "user_book_features:global_pop_rank",
+        "user_book_features:trending_score", "user_book_features:intra_list_diversity",
+    ]
+    try:
+        df = store.get_historical_features(entity_df=entity_df, features=feature_names).to_df()
+        return df
+    except Exception as e:
+        logging.warning("Feast get_historical_features failed: %s", e)
+        return pd.DataFrame()
+
+
+@ray.remote
+def train_and_upload_s3(train_df: pd.DataFrame) -> None:
+    """Train XGBoost rank:ndcg and upload model to S3."""
     prefix = LTR_S3_PREFIX
     bucket = S3_URI.replace("s3://", "").split("/")[0] if S3_URI.startswith("s3://") else S3_URI.split("/")[0]
-    if not bucket or not train_df.size:
-        logger.warning("No training data or S3_URI")
+    if not bucket or train_df is None or train_df.empty:
+        logging.warning("No training data or S3_URI")
         return
-    
     missing = [f for f in FEATURE_COLS if f not in train_df.columns]
     if missing:
-        logger.warning(f"Missing features: {missing[:5]}...")
+        logging.warning("Missing features: %s", missing[:5])
         return
-    # Sort by user_id so consecutive rows form query groups
     train_df = train_df.sort_values("user_id").reset_index(drop=True)
-    # 80/20 train/val split by query (user_id)
     uids = train_df["user_id"].unique()
     np.random.seed(42)
     np.random.shuffle(uids)
@@ -272,7 +224,6 @@ def train_and_save(train_df: pd.DataFrame):
         verbose_eval=50,
     )
     key = f"{prefix}/ltr_xgb_latest.json"
-    # XGBoost save_model() requires a path (string or PathLike), not a buffer
     fd, tmp_path = tempfile.mkstemp(suffix=".json")
     try:
         os.close(fd)
@@ -285,56 +236,67 @@ def train_and_save(train_df: pd.DataFrame):
             aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
         )
         client.put_object(Bucket=bucket, Key=key, Body=body, ContentType="application/json")
-        logger.info(f"Saved LTR model to s3://{bucket}/{key}")
+        logging.info("Saved LTR model to s3://%s/%s", bucket, key)
     finally:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
 
 
 def main():
-    logger.info("Building relevance labels from MongoDB...")
-    labels_df = get_relevance_labels_from_mongo()
-    print("labels_df: ", labels_df.head(5).to_string())
-    if labels_df.empty or len(labels_df) < 0:
+    ray.init(address=os.getenv("RAY_ADDRESS", "local"))
+
+    logger.info("Building relevance labels from MongoDB (Ray)...")
+    labels_df = ray.get(load_labels.remote())
+    if labels_df.empty or len(labels_df) < 1:
         logger.warning("Insufficient label data")
+        ray.shutdown()
         return
+
     entity_df = labels_df[["user_book", "timestamp"]].copy()
     entity_df["timestamp"] = pd.to_datetime(entity_df["timestamp"], utc=True)
-    # Use direct S3 read first so we always get current parquet files (no Feast registry cache).
-    # Feast can serve stale paths after you delete old parquet files; direct S3 lists the bucket at runtime.
-    logger.info("Loading historical features from S3 (direct list for latest data)...")
-    features_df = get_historical_features_direct_s3(entity_df)
+
+    logger.info("Loading historical features from S3 (Ray)...")
+    features_df = ray.get(load_features_direct_s3.remote(entity_df))
     if features_df.empty:
-        logger.info("Direct S3 empty; falling back to Feast offline store...")
-        features_df = get_historical_features_from_feast(entity_df)
+        logger.info("Direct S3 empty; falling back to Feast offline store (Ray)...")
+        features_df = ray.get(load_features_feast.remote(entity_df))
     if features_df.empty:
-        logger.warning("No features from direct S3 or Feast; ensure parquet files exist under s3://%s/features/", FEAST_S3_BUCKET)
+        logger.warning(
+            "No features from direct S3 or Feast; ensure parquet files exist under s3://%s/features/",
+            FEAST_S3_BUCKET,
+        )
+        ray.shutdown()
         return
-    # Merge labels with features on user_book
+
     rename = {c: c.replace("user_book_features:", "") for c in features_df.columns if c.startswith("user_book_features:")}
     features_df = features_df.rename(columns=rename)
-    features_df.dropna(inplace=True)
-    print("features_df: ", features_df.head(5).to_string())
+    features_df = features_df.dropna()
     if "user_book" not in features_df.columns:
         logger.warning("Feast output missing user_book column")
+        ray.shutdown()
         return
+
     train_df = features_df.merge(
         labels_df[["user_book", "user_id", "relevance"]],
         on="user_book",
         how="inner",
         suffixes=("", "_label"),
     )
-    # Merge can create user_id_label when both sides have user_id; keep a single user_id
     if "user_id_label" in train_df.columns:
         train_df = train_df.drop(columns=["user_id_label"])
     if "user_id" not in train_df.columns:
         train_df["user_id"] = train_df["user_book"].str.split("_", n=1).str[0]
     if train_df.empty or "relevance" not in train_df.columns:
         logger.warning("No merged training data")
+        ray.shutdown()
         return
-    logger.info(f"Training on {len(train_df)} rows, {train_df['user_id'].nunique()} queries")
-    train_and_save(train_df)
+
+    logger.info("Training XGBoost LTR and uploading to S3 (Ray)...")
+    ray.get(train_and_upload_s3.remote(train_df))
     logger.info("LTR training done.")
+
+    ray.shutdown()
+    logger.info("Ray cluster shut down. Exiting.")
 
 
 if __name__ == "__main__":
