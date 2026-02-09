@@ -13,7 +13,7 @@ default_args = {
 with DAG(
     dag_id="popularity_training",
     default_args=default_args,
-    schedule="@hourly",  # Every hour
+    schedule="@hourly", 
     start_date=datetime.utcnow() - timedelta(days=1),
     catchup=False,
     tags=["recommendation", "popularity"],

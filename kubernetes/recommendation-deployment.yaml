@@ -97,11 +97,19 @@ spec:
             secretKeyRef:
               name: secret
               key: MONGO_URI
+        # General recommendation cache (redis from redis.yaml)
         - name: REDIS_URL
           valueFrom:
             secretKeyRef:
               name: secret
               key: REDIS_URL
+        # Feast online store (feast-redis from redis-feast.yaml); 
+        - name: FEAST_REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: FEAST_REDIS_URL
+
         - name: LINUCB_S3_PREFIX
           valueFrom:
             secretKeyRef:
@@ -112,4 +120,9 @@ spec:
             secretKeyRef:
               name: secret
               key: GRAPH_S3_PREFIX
+        - name: INTERNAL_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: secret
+              key: INTERNAL_API_KEY
 

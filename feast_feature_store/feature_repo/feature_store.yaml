@@ -1,13 +1,14 @@
 project: bibliophileai
 provider: local
 
-# S3 Registry for shared access
-registry: s3://bibliophile-ai-feast/registry/registry.db
+registry:
+  path: s3://bibliophile-ai-feast/registry/registry.db
+  cache_ttl_seconds: 86400
 
-# Redis for online features
+# Redis for Feast online store 
 online_store:
   type: redis
-  connection_string: localhost:6379
+  connection_string: feast-redis:6379
   key_ttl_seconds: 86400
 
 # S3 for offline features

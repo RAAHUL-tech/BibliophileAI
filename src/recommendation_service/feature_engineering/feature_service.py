@@ -1,7 +1,11 @@
 # feature_service.py - COMPLETE 29-feature pipeline with ALL corrections
 import os
+import re
+import shutil
+import tempfile
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 import supabase
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
@@ -15,11 +19,64 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import io
 import uuid
+from feast import FeatureStore
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+
+# Cached Feast repo path with FEAST_REDIS_URL patched so online store uses feast-redis in K8s
+_feast_repo_path_with_redis = None
+
+
+def _redis_url_to_connection_string(redis_url: str) -> str:
+    """Convert FEAST_REDIS_URL (e.g. redis://feast-redis:6379) to Feast connection_string (host:port)."""
+    if not redis_url or "://" not in redis_url:
+        return redis_url or "localhost:6379"
+    u = urlparse(redis_url)
+    host = u.hostname or "localhost"
+    port = u.port or 6379
+    return f"{host}:{port}"
+
+
+def get_feast_repo_path() -> str:
+    """
+    Return Feast repo path. If FEAST_REDIS_URL is set, return a temp copy of the repo with
+    feature_store.yaml patched so the online store uses that Redis (feast-redis in K8s).
+    """
+    global _feast_repo_path_with_redis
+    repo_path = os.getenv("FEAST_REPO_PATH", "/app/feature_repo")
+    redis_url = os.getenv("FEAST_REDIS_URL")
+    if not redis_url or not os.path.isdir(repo_path):
+        return repo_path
+    if _feast_repo_path_with_redis is not None and os.path.isdir(_feast_repo_path_with_redis):
+        return _feast_repo_path_with_redis
+    try:
+        td = tempfile.mkdtemp(prefix="feast_repo_")
+        for name in ("feature_store.yaml", "feature_definitions.py"):
+            src = os.path.join(repo_path, name)
+            if os.path.isfile(src):
+                shutil.copy2(src, os.path.join(td, name))
+        yaml_path = os.path.join(td, "feature_store.yaml")
+        conn = _redis_url_to_connection_string(redis_url)
+        with open(yaml_path, "r") as f:
+            content = f.read()
+        content = re.sub(
+            r"connection_string:\s*[^\n]+",
+            f"connection_string: {conn}",
+            content,
+            count=1,
+        )
+        with open(yaml_path, "w") as f:
+            f.write(content)
+        _feast_repo_path_with_redis = td
+        logger.info(f"Feast online store using FEAST_REDIS_URL (connection_string={conn})")
+        return _feast_repo_path_with_redis
+    except Exception as e:
+        logger.warning(f"Could not patch Feast repo with FEAST_REDIS_URL: {e}")
+        return repo_path
+
 
 class FeatureService:
     def __init__(self):
@@ -80,9 +137,34 @@ class FeatureService:
                 existing_df = pd.DataFrame()
             
             df_combined = pd.concat([existing_df, df_new], ignore_index=True)
-            
+            # Ensure timestamp has no nulls (Dask/Feast offline store fails on nulls in timestamp)
+            if "timestamp" in df_combined.columns:
+                df_combined = df_combined.dropna(subset=["timestamp", "user_book"])
+            if df_combined.empty:
+                return
+            # Normalize timestamp to datetime64[ns] for consistent parquet schema
+            df_combined["timestamp"] = pd.to_datetime(df_combined["timestamp"], utc=True)
+
             buffer = io.BytesIO()
-            df_combined.to_parquet(buffer, index=False)
+            table = pa.Table.from_pandas(
+                df_combined,
+                preserve_index=False
+            )
+            # Fix ONLY the timestamp field
+            schema = table.schema
+            ts_idx = schema.get_field_index("timestamp")
+
+            new_schema = schema.set(
+                ts_idx,
+                pa.field("timestamp", pa.timestamp("ns", tz="UTC"))
+            )
+
+            # Apply schema without touching data
+            table = table.cast(new_schema)
+
+            # Write parquet
+            pq.write_table(table, buffer)
+
             parquet_bytes = buffer.getvalue() 
             
             self.s3_client.put_object(
@@ -137,6 +219,58 @@ class FeatureService:
         logger.info(f"Generated {len(feature_entities)} / {len(book_ids)} features")
         await self.store_features_s3_parquet(feature_entities)
         return feature_entities
+
+    def materialize_offline_to_online(self) -> bool:
+        """
+        Run Feast materialize_incremental to push latest batch (offline S3) data into the online store (Redis).
+        Uses get_feast_repo_path() so FEAST_REDIS_URL is applied (feast-redis in K8s).
+        Returns True if successful, False otherwise (non-fatal).
+        """
+        repo_path = get_feast_repo_path()
+        if not os.path.isdir(repo_path):
+            logger.warning(f"Feast repo not found at {repo_path}; skip materialize_incremental")
+            return False
+        # Log which Redis Feast will use (so we can confirm it's feast-redis in K8s)
+        try:
+            with open(os.path.join(repo_path, "feature_store.yaml"), "r") as f:
+                cfg = f.read()
+            m = re.search(r"connection_string:\s*(\S+)", cfg)
+            conn = m.group(1) if m else "unknown"
+            logger.info(f"Feast materialize_incremental will write to Redis connection_string={conn} (repo_path={repo_path})")
+        except Exception:
+            pass
+        try:
+            store = FeatureStore(repo_path=repo_path)
+            # Fetches latest values from batch source (S3 parquet) and ingests into online store (Redis)
+            store.materialize_incremental(datetime.utcnow())
+            logger.info("Feast materialize_incremental completed; online store (Redis) updated")
+            # Sanity-check: ensure we're really talking to Redis (Feast may not raise if write fails)
+            try:
+                r = redis.from_url(os.getenv("FEAST_REDIS_URL", ""))
+                n = len(r.keys("*"))
+                r.close()
+                logger.info(f"Feast Redis key count after materialize: {n}")
+                if n == 0:
+                    logger.warning(
+                        "Feast Redis has 0 keys after materialize_incremental. "
+                        "Batch source (S3 parquet) may have returned no rows (e.g. timestamp/event_timestamp mismatch or path). "
+                        "LTR will use in-memory features when online store returns all None."
+                    )
+            except Exception as e:
+                logger.warning(f"Could not verify Feast Redis key count: {e}")
+            return True
+        except KeyError as e:
+            if str(e).strip("'") == "timestamp":
+                logger.warning(
+                    "Feast materialize_incremental failed: batch source may use 'timestamp' but Feast expects 'event_timestamp' in some paths. "
+                    "Offline store (S3) is still updated; online store may be updated by a separate materialization job."
+                )
+            else:
+                logger.warning(f"Feast materialize_incremental failed (KeyError): {e}")
+            return False
+        except Exception as e:
+            logger.warning(f"Feast materialize_incremental failed: {e}", exc_info=True)
+            return False
     
     def _build_single_feature_vector(
         self, user_id: str, book_id: str, combined_scores_map: Dict[str, Dict],
@@ -201,13 +335,14 @@ class FeatureService:
         trending_score = pop_feats.get("trending_score", 0.0)
         intra_list_diversity = pop_feats.get("diversity", 0.5)
         
-        # FULL 29-DIM VECTOR
+        # FULL 29-DIM VECTOR (timestamp must be non-null and consistent for Feast/Dask offline store)
+        ts = pd.Timestamp.utcnow()
         feature_vector = {
             "user_book": f"{user_id}_{book_id}",
             "user_id": user_id,
             "book_id": book_id,
             "query_id": query_id,
-            "timestamp": datetime.utcnow(),
+            "timestamp": ts,
             
             # 29 Features 
             **{f"retrieval_{i}": float(retrieval_scores[i]) for i in range(6)},
@@ -244,7 +379,17 @@ class FeatureService:
             
         response = self.supabase.table("books").select("*").in_("id", book_ids).execute()
         return {row["id"]: row for row in response.data}
-  
+
+    async def _get_user_profile(self, user_id: str) -> Dict:
+        """Supabase user profile - FIXED caching"""
+        if user_id in self.user_cache:
+            return self.user_cache[user_id]
+        
+        response = self.supabase.table("user_preferences").select("*").eq("user_id", user_id).execute()
+        profile = response.data[0] if response.data else {}
+        self.user_cache[user_id] = profile
+        return profile 
+
     async def _get_ratings(self, user_id: str, book_ids: List[str]) -> Dict[str, Dict]:
         """Get ratings using PostgREST API (no .group())"""
         if not book_ids:
@@ -297,16 +442,6 @@ class FeatureService:
             return ratings_data
 
 
-    
-    async def _get_user_profile(self, user_id: str) -> Dict:
-        """Supabase user profile - FIXED caching"""
-        if user_id in self.user_cache:
-            return self.user_cache[user_id]
-        
-        response = self.supabase.table("user_preferences").select("*").eq("user_id", user_id).execute()
-        profile = response.data[0] if response.data else {}
-        self.user_cache[user_id] = profile
-        return profile
     
     async def _get_current_session(self, user_id: str) -> Dict:
         """MongoDB current session info - FIXED query"""
@@ -366,7 +501,7 @@ class FeatureService:
             "friend_avg_rating": 0.0,    # Friends' avg r.score
             "author_following": 0,       # User FOLLOWS→author→WROTE→book
             "mutual_likes": 0,           # Shared LIKES with friends
-            "social_proximity": 999      # Shortest FOLLOWS path to 4★ rater
+            "social_proximity": 999      # Shortest FOLLOWS path to 4 star rater
         }
         
         social_data = {bid: default_social.copy() for bid in book_ids}

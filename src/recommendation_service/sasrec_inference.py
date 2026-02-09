@@ -121,11 +121,11 @@ def recommend_for_session(user_id: str, top_k: int = 20) -> Tuple[List[str], Lis
     items = _get_user_items(user_id)
     print(f"[SASRec] user_id={user_id}, items={items}")
     if len(items) < 2:
-        return []
+        return [], []
 
     seq_ids = [_item2id[i] for i in items if i in _item2id]
     if len(seq_ids) < 2:
-        return []
+        return [], []
 
     seq_ids = seq_ids[-MAX_LEN:]
     pad_len = MAX_LEN - len(seq_ids)
@@ -159,5 +159,5 @@ def recommend_for_session(user_id: str, top_k: int = 20) -> Tuple[List[str], Lis
             if max_v > min_v:
                 scores = [(s - min_v) / (max_v - min_v) for s in scores]
         
-        print(f"4. [SASRec] user={user_id}: {recs} with scores {scores}")
+        print(f"4. [SASRec] user={user_id}: {recs} with scores {scores} with top_k {top_k}")
         return recs, scores 

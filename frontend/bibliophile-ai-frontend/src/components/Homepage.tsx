@@ -1,10 +1,11 @@
-import { useState, useEffect, type FC } from "react"
+import { useState, useEffect, useRef, type FC } from "react"
 import { Dropdown, Navbar, Container, Nav, Spinner, Alert, Card, Button } from "react-bootstrap"
 import Profile from "./Profile"
 import UpdateGenrePreferences from "./UpdateGenrePreferences"
 import UpdateAuthorPreferences from "./UpdateAuthorPreferences"
 import BookView from "./BookView";
-import { FaUser, FaHeart, FaSignOutAlt, FaUserPlus } from "react-icons/fa"
+import { FaUser, FaHeart, FaSignOutAlt, FaUserPlus, FaChevronLeft, FaChevronRight } from "react-icons/fa"
+import "./NetflixStyles.css"
 
 interface BookRecommendation {
   id: string
@@ -13,6 +14,13 @@ interface BookRecommendation {
   categories: string[]
   thumbnail_url?: string
   download_link?: string
+  score?: number
+}
+
+interface RecommendationCategory {
+  category: string
+  description: string
+  books: BookRecommendation[]
 }
 
 interface UserPreferences {
@@ -32,12 +40,30 @@ interface HomepageProps {
   onLogout: () => void
 }
 
+/** Map backend category names to engaging, user-facing titles */
+function getDisplayTitle(backendCategory: string): string {
+  const map: Record<string, string> = {
+    "Content-Based Recommendations": "Because you liked...",
+    "Collaborative Filtering": "Readers like you also loved",
+    "Social Recommendations": "From your community",
+    "Session-Based": "Based on your recent reads",
+    "Trending Now": "Trending now",
+    "For You (LinUCB)": "Just for you",
+    "Continue Reading": "Continue reading",
+    "Top Picks": "Top picks for you",
+  }
+  if (map[backendCategory]) return map[backendCategory]
+  if (backendCategory.startsWith("More in ")) return backendCategory
+  return backendCategory
+}
+
 const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
   const [preferences, setPreferences] = useState<UserPreferences | null>(null)
   const [view, setView] = useState<"none" | "profile" | "preferences" | "author_preferences">("none")
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [recommendations, setRecommendations] = useState<BookRecommendation[]>([])
+  const [recommendationCategories, setRecommendationCategories] = useState<RecommendationCategory[]>([])
   const [loadingRecs, setLoadingRecs] = useState<boolean>(true)
   const [recsError, setRecsError] = useState<string | null>(null)
   const [selectedBook, setSelectedBook] = useState<BookRecommendation | null>(null);
@@ -62,7 +88,17 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
         })
         if (res.ok) {
           const data = await res.json()
-          setRecommendations(data.recommendations || [])
+          // Handle new category-based format
+          if (data.categories) {
+            setRecommendationCategories(data.categories || [])
+            // Flatten for backward compatibility
+            const allBooks = data.categories.flatMap((cat: RecommendationCategory) => cat.books)
+            setRecommendations(allBooks)
+          } else {
+            // Fallback to old format
+            setRecommendations(data.recommendations || [])
+            setRecommendationCategories([])
+          }
         } else {
           setRecsError("Failed to load recommendations")
         }
@@ -219,7 +255,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
 
   return (
     <>
-      <Navbar bg="light" expand="lg" fixed="top" className="shadow-sm">
+      <Navbar bg="dark" variant="dark" expand="lg" fixed="top" className="shadow-sm" style={{ backgroundColor: '#141414' }}>
         <Container>
           <Navbar.Brand href="#">BibliophileAI</Navbar.Brand>
           <Nav className="ms-auto">
@@ -251,10 +287,10 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
         </Container>
       </Navbar>
 
-      <div className="container-fluid" style={{ marginTop: "75px" }}>
-        <div className="row">
+      <div className="container-fluid" style={{ marginTop: "75px", backgroundColor: "#141414", minHeight: "100vh", padding: 0 }}>
+        <div className="row" style={{ margin: 0 }}>
           {/* Main Content Area */}
-          <div className="col-lg-9 col-md-8">
+          <div className="col-lg-9 col-md-8" style={{ padding: 0 }}>
             {selectedBook ? (
               <BookView book={selectedBook} token={token} onBack={() => setSelectedBook(null)} />
             ) : (
@@ -282,12 +318,23 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
                 {view === "none" && (
                   <>
                     {loadingRecs ? (
-                      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "60vh" }}>
-                        <Spinner animation="border" role="status" />
-                        <span className="ms-3">Loading recommendations...</span>
+                      <div className="netflix-loading-state">
+                        <div className="netflix-loading-spinner" role="status" aria-label="Loading" />
+                        <span className="netflix-loading-text">Loading recommendations for you...</span>
                       </div>
                     ) : recsError ? (
                       <Alert variant="danger">{recsError}</Alert>
+                    ) : recommendationCategories.length > 0 ? (
+                      <div className="netflix-container">
+                        {recommendationCategories.map((category, idx) => (
+                          <NetflixRow 
+                            key={idx} 
+                            category={category}
+                            displayTitle={getDisplayTitle(category.category)}
+                            onBookClick={setSelectedBook}
+                          />
+                        ))}
+                      </div>
                     ) : (
                       <div>
                         <h2>Recommended for you</h2>
@@ -324,13 +371,13 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
           </div>
 
           {/* Right Sidebar - Follower Suggestions */}
-          <div className="col-lg-3 col-md-4">
+          <div className="col-lg-3 col-md-4" style={{ padding: "1rem" }}>
             <div className="sticky-top" style={{ top: "85px" }}>
-              <Card className="shadow-sm">
-                <Card.Header className="bg-primary text-white">
+              <Card className="shadow-sm" style={{ backgroundColor: "#1f1f1f", borderColor: "#333" }}>
+                <Card.Header style={{ backgroundColor: "#2d2d2d", borderColor: "#333", color: "#fff" }}>
                   <h5 className="mb-0">👥 Suggested Users</h5>
                 </Card.Header>
-                <Card.Body style={{ maxHeight: "70vh", overflowY: "auto" }}>
+                <Card.Body style={{ maxHeight: "70vh", overflowY: "auto", backgroundColor: "#1f1f1f", color: "#fff" }}>
                   {loadingSuggestions ? (
                     <div className="text-center py-3">
                       <Spinner animation="border" size="sm" />
@@ -372,6 +419,80 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
         </div>
       </div>
     </>
+  )
+}
+
+// Netflix-style Row Component with horizontal scrolling
+interface NetflixRowProps {
+  category: RecommendationCategory
+  displayTitle?: string
+  onBookClick: (book: BookRecommendation) => void
+}
+
+const NetflixRow: FC<NetflixRowProps> = ({ category, displayTitle, onBookClick }) => {
+  const sliderRef = useRef<HTMLDivElement>(null)
+  const title = displayTitle ?? category.category
+
+  const scrollLeft = () => {
+    if (sliderRef.current) {
+      sliderRef.current.scrollBy({ left: -600, behavior: 'smooth' })
+    }
+  }
+
+  const scrollRight = () => {
+    if (sliderRef.current) {
+      sliderRef.current.scrollBy({ left: 600, behavior: 'smooth' })
+    }
+  }
+
+  return (
+    <div className="netflix-row">
+      <h3 className="netflix-row-title">{title}</h3>
+      <p className="netflix-row-description">{category.description}</p>
+      <div className="netflix-row-content" style={{ position: 'relative' }}>
+        <button 
+          className="netflix-scroll-button left"
+          onClick={scrollLeft}
+          aria-label="Scroll left"
+        >
+          <FaChevronLeft />
+        </button>
+        <div className="netflix-slider" ref={sliderRef}>
+          {category.books.map((book) => (
+            <div
+              key={book.id}
+              className="netflix-item"
+              onClick={() => onBookClick(book)}
+            >
+              {book.thumbnail_url ? (
+                <img 
+                  src={book.thumbnail_url} 
+                  alt={book.title}
+                  className="netflix-item-image"
+                />
+              ) : (
+                <div className="netflix-item-placeholder">
+                  <span>{book.title}</span>
+                </div>
+              )}
+              <div className="netflix-item-overlay">
+                <h4>{book.title}</h4>
+                {book.authors && book.authors.length > 0 && (
+                  <p>{book.authors.join(", ")}</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        <button 
+          className="netflix-scroll-button right"
+          onClick={scrollRight}
+          aria-label="Scroll right"
+        >
+          <FaChevronRight />
+        </button>
+      </div>
+    </div>
   )
 }
 

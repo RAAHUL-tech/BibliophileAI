@@ -29,13 +29,7 @@ with DAG(
         is_delete_operator_pod=True,
         in_cluster=True,
         get_logs=True,
-        # Schedule only on dedicated SASRec node (if it exists)
-        # TODO: Uncomment after recreating cluster with dedicated node
-        # If node doesn't exist, the pod won't schedule - comment out to use any node
-        # node_selector={"workload": "sasrec-training"},
         # Resource limits to ensure sufficient memory
-        # Start with minimal requests - increase if needed after confirming it works
-        # If pod still doesn't schedule, comment out container_resources entirely
         container_resources=k8s.V1ResourceRequirements(
             requests={"memory": "1Gi", "cpu": "500m"},
             limits={"memory": "6Gi", "cpu": "4"},

@@ -63,7 +63,9 @@ async def get_popularity_recommendations(
     top_k: int = 50
 ) -> Tuple[List[str], List[float]]:
     """
-    Get top trending books for user (Redis primary + S3 PyTorch fallback).
+    Get top trending books from global Redis key (popularity:trending:{window}).
+    Same list for all users; user_id is unused. Populated by model_training_service/popularity_train.
+    Redis primary, S3 PyTorch fallback if Redis empty.
     Returns: (book_ids: List[str], scores: List[float])
     """
     if window not in POPULARITY_WINDOWS:
@@ -78,11 +80,11 @@ async def get_popularity_recommendations(
             if books_scores:
                 book_ids = [book_id_bytes.decode("utf-8") for book_id_bytes, _ in books_scores]
                 scores = [float(score) for _, score in books_scores]
-                print(f"Redis hit: {len(book_ids)} books for window {window} with scores {scores}")
+                print(f"Redis hit: {len(book_ids)} books for window {window} with scores {scores} with top_k {top_k}")
                 return book_ids, scores
     except Exception as e:
         print(f"Redis failed: {e}")
     
     # Fallback to S3 if Redis unavailable or empty
-    print(f"Falling back to S3 for window {window}")
+    print(f"Falling back to S3 for window {window} with top_k {top_k}")
     return get_s3_popularity_fallback(window, top_k)

@@ -36,6 +36,7 @@ from io import BytesIO
 import zipfile
 import mimetypes
 from produce import send_click_event
+import asyncio
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -57,6 +58,44 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _trigger_recommendation_refresh(path_suffix: str, user_id: str) -> None:
+    """
+    Fire-and-forget: POST to recommendation service internal refresh endpoint.
+    Runs in background so connection failures don't block the API response.
+    Set RECOMMENDATION_SERVICE_URL (e.g. http://localhost:8001) and INTERNAL_API_KEY.
+    """
+    rec_url = os.getenv("RECOMMENDATION_SERVICE_URL", "").rstrip("/")
+    internal_key = os.getenv("INTERNAL_API_KEY", "")
+    if not internal_key:
+        return
+
+    async def _do_post():
+        try:
+            async with httpx.AsyncClient() as client:
+                r = await client.post(
+                    f"{rec_url}/internal/recommend/{path_suffix}",
+                    json={"user_id": str(user_id)},
+                    headers={"X-Internal-Key": internal_key},
+                    timeout=30.0,
+                )
+                if r.is_success:
+                    logger.info(f"Recommendation refresh {path_suffix} ok for user {user_id}")
+                    print(f"Recommendation refresh {path_suffix} ok for user {user_id}")
+                else:
+                    logger.warning(f"Recommendation refresh {path_suffix} returned {r.status_code} for user {user_id}")
+                    print(f"Recommendation refresh {path_suffix} returned {r.status_code} for user {user_id}")
+        except (httpx.ConnectError, httpx.RequestError):
+            print(f"Recommendation service unreachable at {rec_url} for {path_suffix} (user {user_id}). Is it running? Set RECOMMENDATION_SERVICE_URL if it runs elsewhere.")
+            logger.warning(
+                f"Recommendation service unreachable at {rec_url} for {path_suffix} (user {user_id}). "
+                "Is it running? Set RECOMMENDATION_SERVICE_URL if it runs elsewhere."
+            )
+        except Exception as e:
+            logger.warning(f"Recommendation refresh {path_suffix} failed for user {user_id}: {e}")
+            print(f"Recommendation refresh {path_suffix} failed for user {user_id}: {e}")
+    asyncio.create_task(_do_post())
 
 
 async def get_current_user(token: str = Security(oauth2_scheme)):
@@ -427,6 +466,10 @@ async def patch_preferences(
         age=age,
         pincode=pincode
     )
+
+    # Trigger recommendation cache refresh for content-based (genre/author change); fire-and-forget
+    _trigger_recommendation_refresh("refresh-content-based", str(user_id))
+
     return {
         "user_id": user_id,
         "genres": genres,
@@ -468,6 +511,7 @@ async def logout(req: LogoutRequest, current_user=Depends(get_current_user)):
     try:
         # Fetch current active session info (session_id, last_activity)
         session_info = await get_current_active_session_id(current_user["id"])
+        user_id = current_user["id"]
         if not session_info or session_info["session_id"] != req.session_id:
             # Session mismatch or no active session found
             duration = None
@@ -488,6 +532,7 @@ async def logout(req: LogoutRequest, current_user=Depends(get_current_user)):
         }
         group_id = f"user_{current_user['id']}"
         send_click_event(event, group_id)
+        _trigger_recommendation_refresh("refresh-on-logout", str(current_user["id"]))
 
         await end_session(req.session_id)
         return {"success": True}
@@ -848,7 +893,8 @@ async def follow_user(
         }
         group_id = f"user_{user_id}"
         send_click_event(event, group_id)
-        
+        _trigger_recommendation_refresh("refresh-graph", str(current_user["id"]))
+
         return {"status": "following", "user_id": target_user_id}
     
     except Exception as e:
@@ -889,7 +935,8 @@ async def unfollow_user(
         }
         group_id = f"user_{user_id}"
         send_click_event(event, group_id)
-        
+        _trigger_recommendation_refresh("refresh-graph", str(current_user["id"]))
+
         return {"status": "unfollowed", "user_id": target_user_id}
     
     except Exception as e:
