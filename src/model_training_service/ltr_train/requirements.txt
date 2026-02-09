@@ -6,3 +6,4 @@ boto3
 feast
 s3fs
 redis
+ray
