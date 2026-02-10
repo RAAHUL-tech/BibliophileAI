@@ -882,7 +882,7 @@ async def follow_user(
         event = {
             "event_id": str(uuid.uuid4()),
             "user_id": user_id,
-            "item_id": target_user_id,
+            "item_id": None,
             "event_type": "follow_user",
             "timestamp": datetime.utcnow().isoformat(),
             "session_id": session_id,
@@ -924,7 +924,7 @@ async def unfollow_user(
         event = {
             "event_id": str(uuid.uuid4()),
             "user_id": user_id,
-            "item_id": target_user_id,
+            "item_id": None,
             "event_type": "unfollow_user",
             "timestamp": datetime.utcnow().isoformat(),
             "session_id": session_id,
