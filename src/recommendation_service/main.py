@@ -420,13 +420,13 @@ async def recommend_combined(
     print(f"Got {len(cb_book_ids)} CB, {len(als_book_ids)} ALS, {len(graph_book_ids)} Graph, "
           f"{len(session_book_ids)} Session, {len(pop_book_ids)} Popularity books")
 
-    # LinUCB: merge all candidates and rank with contextual bandit
+    # LinUCB: score all candidates with contextual bandit (online model per user)
     all_candidates = list(set(
         cb_book_ids + als_book_ids + graph_book_ids +
         session_book_ids + pop_book_ids
     ))
-    print(f"All candidates: {all_candidates} with length {len(all_candidates)}")
     linucb_book_ids, linucb_scores = linucb_ranker.get_linucb_ranked(all_candidates, user_id)
+    linucb_ranker.set_shown_books(user_id, linucb_book_ids)
 
     # Build combined_scores_map for feature engineering (Feast integration)
     combined_scores_map.clear()
@@ -471,7 +471,6 @@ async def recommend_combined(
                 logger.info("LTR using in-memory features (Feast online store had no values)")
             else:
                 feast_features_df = None
-                print("feature_entities_from_batch is None")
 
     # Learning-to-Rank: score candidates with XGBoost LambdaRank, add "Top Picks" category
     ltr_book_ids, ltr_scores = [], []
@@ -652,11 +651,13 @@ async def internal_refresh_on_logout(
 ):
     """
     Run collaborative_filtering, SASRec, LinUCB, and currently-reading; update cache.
-    Call when user logs out (so next login gets fresh CF/session/LinUCB/continue-reading).
+    Call when user logs out. LinUCB is online learning: train on previous shown books (rewards from MongoDB), then re-rank and update cache.
     """
     user_id = body.user_id
     loop = asyncio.get_running_loop()
     try:
+        # LinUCB online update: reward from last session (read=3, page_turn=2, bookmark=3, review=4), update A, b, θ
+        await loop.run_in_executor(None, linucb_ranker.train_on_logout, user_id)
         # Collaborative Filtering
         als_book_ids, cf_scores = await cf.recommend_als_books(user_id, top_k=50)
         all_book_ids = list(als_book_ids)
@@ -668,9 +669,10 @@ async def internal_refresh_on_logout(
             None, _get_currently_reading_book_ids_sync, user_id, 20
         )
         all_book_ids.extend(currently_reading_ids)
-        # LinUCB needs candidates: use ALS + session + currently_reading
+        # LinUCB: rank candidates, then store shown list for next logout training
         linucb_candidates = list(set(als_book_ids + session_book_ids + currently_reading_ids))
         linucb_book_ids, linucb_scores = linucb_ranker.get_linucb_ranked(linucb_candidates, user_id)
+        linucb_ranker.set_shown_books(user_id, linucb_book_ids)
         all_book_ids.extend(linucb_book_ids)
         candidate_ids = list(set(all_book_ids))
 
