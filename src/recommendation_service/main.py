@@ -26,6 +26,7 @@ from popularity_recommendation import get_popularity_recommendations, get_s3_pop
 from linucb_inference import linucb_ranker
 from feature_engineering.feature_service import feature_service, get_feast_repo_path
 from ltr_ranking import rank_candidates as ltr_rank_candidates
+import ltr_postprocess
 
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -167,7 +168,7 @@ async def get_books_by_ids(ids: List[str]):
     try:
         async with httpx.AsyncClient(timeout=BOOKS_FETCH_TIMEOUT) as client:
             idlist = ",".join([f'"{bid}"' for bid in ids])
-            fields = "id,title,authors,categories,thumbnail_url,download_link"
+            fields = "id,title,authors,categories,thumbnail_url,download_link,language"
             url = f"{SUPABASE_URL}/rest/v1/books?select={fields}&id=in.({idlist})"
             resp = await client.get(url, headers=headers)
             resp.raise_for_status()
@@ -196,6 +197,39 @@ async def get_user_preferred_genres(user_id: str) -> List[str]:
     except Exception as e:
         logger.warning(f"Failed to fetch user preferences: {e}")
         return []
+
+
+async def get_user_preferences_for_ltr(user_id: str) -> Dict[str, Any]:
+    """Fetch user preferences for LTR post-processing. user_preferences has no preferred_language; language filter is skipped."""
+    return {"preferred_language": "en"}
+
+
+async def get_avg_ratings_for_books(book_ids: List[str]) -> Dict[str, float]:
+    """Fetch average rating per book from Supabase rating table (for LTR classic rule)."""
+    if not book_ids:
+        return {}
+    try:
+        async with httpx.AsyncClient() as client:
+            idlist = ",".join([f'"{b}"' for b in book_ids])
+            url = f"{SUPABASE_URL}/rest/v1/rating?select=book_id,rating&book_id=in.({idlist})"
+            resp = await client.get(url, headers=headers)
+            resp.raise_for_status()
+            rows = resp.json()
+    except Exception as e:
+        logger.debug("LTR: ratings fetch failed: %s", e)
+        return {}
+    sums: Dict[str, float] = defaultdict(float)
+    counts: Dict[str, int] = defaultdict(int)
+    for row in rows or []:
+        bid = row.get("book_id")
+        r = row.get("rating")
+        if bid is not None and r is not None:
+            try:
+                sums[bid] += float(r)
+                counts[bid] += 1
+            except (TypeError, ValueError):
+                pass
+    return {bid: sums[bid] / counts[bid] if counts[bid] else 3.5 for bid in sums}
 
 async def _get_trending_now_category(top_k: int = 50) -> Dict[str, Any]:
     """
@@ -520,7 +554,7 @@ async def recommend_combined(
         "scores": linucb_scores,
         "description": "Personalized picks with exploration"
     }
-    # Top Picks from LTR (always set category; empty when LTR has no results)
+    # Top Picks from LTR (post-processed for diversity; empty when LTR has no results)
     categories["Top Picks"] = {
         "book_ids": ltr_book_ids,
         "scores": ltr_scores,
@@ -533,8 +567,36 @@ async def recommend_combined(
         session_book_ids + pop_book_ids + linucb_book_ids +
         currently_reading_ids + ltr_book_ids
     ))
-    books_dict = {book["id"]: book for book in await get_books_by_ids(all_book_ids)}
-    
+    books_dict = {str(book.get("id") or book.get("_id")): book for book in await get_books_by_ids(all_book_ids)}
+
+    # Stage 5: Post-processing & diversity control for LTR (Top Picks) only
+    if ltr_book_ids and ltr_scores:
+        try:
+            user_prefs = await get_user_preferences_for_ltr(user_id)
+            preferred_languages = user_prefs.get("preferred_language")
+            ratings_map = await get_avg_ratings_for_books(ltr_book_ids)
+            books_meta = {bid: books_dict.get(bid) or {} for bid in ltr_book_ids}
+            loop = asyncio.get_running_loop()
+            final_ids, final_scores, metrics = await loop.run_in_executor(
+                None,
+                lambda: ltr_postprocess.apply_ltr_postprocess(
+                    ltr_book_ids,
+                    ltr_scores,
+                    books_meta,
+                    user_id,
+                    user_preferred_languages=preferred_languages,
+                    ratings_map=ratings_map,
+                ),
+            )
+            categories["Top Picks"] = {
+                "book_ids": final_ids,
+                "scores": final_scores,
+                "description": "Recommended for you by our ranking model"
+            }
+            logger.info("LTR postprocess metrics: %s", metrics)
+        except Exception as e:
+            logger.warning("LTR postprocess failed (using raw LTR list): %s", e)
+
     # Build category-based recommendations
     category_recommendations = []
     for category_name, category_data in categories.items():
@@ -721,14 +783,41 @@ async def internal_refresh_on_logout(
                 if not ltr_feature_df.empty:
                     ltr_ids, ltr_scores = ltr_rank_candidates(user_id, ltr_feature_df, top_k=100)
             if ltr_ids:
-                update_cached_category(
-                    user_id, "Top Picks",
-                    _build_category_payload(
-                        "Top Picks",
-                        "Recommended for you by our ranking model",
-                        ltr_ids, ltr_scores, books_dict,
-                    ),
-                )
+                # Stage 5: Post-processing & diversity control for LTR (Top Picks)
+                try:
+                    user_prefs = await get_user_preferences_for_ltr(user_id)
+                    preferred_languages = user_prefs.get("preferred_language")
+                    ratings_map = await get_avg_ratings_for_books(ltr_ids)
+                    books_meta = {bid: books_dict.get(bid) or {} for bid in ltr_ids}
+                    final_ids, final_scores, _ = await loop.run_in_executor(
+                        None,
+                        lambda: ltr_postprocess.apply_ltr_postprocess(
+                            ltr_ids,
+                            ltr_scores,
+                            books_meta,
+                            user_id,
+                            user_preferred_languages=preferred_languages,
+                            ratings_map=ratings_map,
+                        ),
+                    )
+                    update_cached_category(
+                        user_id, "Top Picks",
+                        _build_category_payload(
+                            "Top Picks",
+                            "Recommended for you by our ranking model",
+                            final_ids, final_scores, books_dict,
+                        ),
+                    )
+                except Exception as pp_e:
+                    logger.warning("LTR postprocess on refresh failed (using raw LTR): %s", pp_e)
+                    update_cached_category(
+                        user_id, "Top Picks",
+                        _build_category_payload(
+                            "Top Picks",
+                            "Recommended for you by our ranking model",
+                            ltr_ids, ltr_scores, books_dict,
+                        ),
+                    )
         except Exception as e:
             logger.warning(f"LTR refresh on logout failed for {user_id}: {e}")
 

@@ -40,6 +40,34 @@ interface HomepageProps {
   onLogout: () => void
 }
 
+/** Fixed row order for recommendation categories. Only rows present in this list are shown, in this order. */
+const CATEGORY_ORDER: string[] = [
+  "Continue Reading",
+  "Top Picks",
+  "Content-Based Recommendations",
+  "Collaborative Filtering",
+  "Social Recommendations",
+  "Session-Based",
+  "Trending Now",
+  "For You (LinUCB)",
+]
+
+/** Order categories by CATEGORY_ORDER and skip categories with no books. Stable across reload/login. */
+function orderCategories(categories: RecommendationCategory[]): RecommendationCategory[] {
+  const byName = new Map<string, RecommendationCategory>()
+  for (const c of categories) {
+    byName.set(c.category, c)
+  }
+  const ordered: RecommendationCategory[] = []
+  for (const name of CATEGORY_ORDER) {
+    const cat = byName.get(name)
+    if (cat && cat.books && cat.books.length > 0) {
+      ordered.push(cat)
+    }
+  }
+  return ordered
+}
+
 /** Map backend category names to engaging, user-facing titles */
 function getDisplayTitle(backendCategory: string): string {
   const map: Record<string, string> = {
@@ -88,11 +116,12 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
         })
         if (res.ok) {
           const data = await res.json()
-          // Handle new category-based format
+          // Handle new category-based format: enforce fixed row order and skip empty categories
           if (data.categories) {
-            setRecommendationCategories(data.categories || [])
+            const ordered = orderCategories(data.categories || [])
+            setRecommendationCategories(ordered)
             // Flatten for backward compatibility
-            const allBooks = data.categories.flatMap((cat: RecommendationCategory) => cat.books)
+            const allBooks = ordered.flatMap((cat: RecommendationCategory) => cat.books)
             setRecommendations(allBooks)
           } else {
             // Fallback to old format
@@ -326,9 +355,9 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
                       <Alert variant="danger">{recsError}</Alert>
                     ) : recommendationCategories.length > 0 ? (
                       <div className="netflix-container">
-                        {recommendationCategories.map((category, idx) => (
+                        {recommendationCategories.map((category) => (
                           <NetflixRow 
-                            key={idx} 
+                            key={category.category} 
                             category={category}
                             displayTitle={getDisplayTitle(category.category)}
                             onBookClick={setSelectedBook}
