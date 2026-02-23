@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef, type FC } from "react"
-import { Dropdown, Navbar, Container, Nav, Spinner, Alert, Card, Button } from "react-bootstrap"
+import { useState, useEffect, useRef, useMemo, type FC } from "react"
+import { Dropdown, Navbar, Container, Nav, Spinner, Card, Button } from "react-bootstrap"
 import Profile from "./Profile"
 import UpdateGenrePreferences from "./UpdateGenrePreferences"
 import UpdateAuthorPreferences from "./UpdateAuthorPreferences"
-import BookView from "./BookView";
-import { FaUser, FaHeart, FaSignOutAlt, FaUserPlus, FaChevronLeft, FaChevronRight } from "react-icons/fa"
+import BookOverlay from "./BookOverlay"
+import { useTheme } from "../context/ThemeContext"
+import { FaUser, FaHeart, FaSignOutAlt, FaUserPlus, FaChevronLeft, FaChevronRight, FaSearch, FaSun, FaMoon, FaTimes } from "react-icons/fa"
 import "./NetflixStyles.css"
+import "./SharedStyles.css"
 
 interface BookRecommendation {
   id: string
@@ -86,6 +88,7 @@ function getDisplayTitle(backendCategory: string): string {
 }
 
 const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
+  const { theme, toggleTheme } = useTheme()
   const [preferences, setPreferences] = useState<UserPreferences | null>(null)
   const [view, setView] = useState<"none" | "profile" | "preferences" | "author_preferences">("none")
   const [loading, setLoading] = useState<boolean>(false)
@@ -94,12 +97,31 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
   const [recommendationCategories, setRecommendationCategories] = useState<RecommendationCategory[]>([])
   const [loadingRecs, setLoadingRecs] = useState<boolean>(true)
   const [recsError, setRecsError] = useState<string | null>(null)
-  const [selectedBook, setSelectedBook] = useState<BookRecommendation | null>(null);
-  
+  const [selectedBook, setSelectedBook] = useState<BookRecommendation | null>(null)
+  const [searchExpanded, setSearchExpanded] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+
   // Follower suggestions state
   const [followerSuggestions, setFollowerSuggestions] = useState<UserSuggestion[]>([])
   const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(true)
   const [followingInProgress, setFollowingInProgress] = useState<Set<string>>(new Set())
+
+  // Client-side search filter (no backend calls)
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery.trim()) return recommendationCategories
+    const q = searchQuery.trim().toLowerCase()
+    return recommendationCategories
+      .map((cat) => ({
+        ...cat,
+        books: cat.books.filter(
+          (b) =>
+            b.title?.toLowerCase().includes(q) ||
+            b.authors?.some((a) => String(a).toLowerCase().includes(q)) ||
+            b.categories?.some((c) => String(c).toLowerCase().includes(q))
+        ),
+      }))
+      .filter((cat) => cat.books.length > 0)
+  }, [recommendationCategories, searchQuery])
 
   // Fetch recommendations on first load
   useEffect(() => {
@@ -107,7 +129,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
     setRecsError(null)
     const fetchRecs = async () => {
       try {
-        const res = await fetch("http://localhost:8001/api/v1/recommend/combined", {
+        const res = await fetch("http://localhost:8080/api/v1/recommend/combined", {
           headers: { 
             Authorization: `Bearer ${token}` ,
             'Content-Type': 'application/json',
@@ -145,7 +167,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
     const fetchSuggestions = async () => {
       setLoadingSuggestions(true)
       try {
-        const res = await fetch("http://localhost:8000/api/v1/user/follower-suggestions?limit=10", {
+        const res = await fetch("http://localhost:8080/api/v1/user/follower-suggestions?limit=10", {
           headers: { Authorization: `Bearer ${token}` }
         })
         if (res.ok) {
@@ -170,7 +192,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
       setLoading(true)
       setError(null)
       try {
-        const res = await fetch("http://localhost:8000/api/v1/user/preferences", {
+        const res = await fetch("http://localhost:8080/api/v1/user/preferences", {
           headers: { Authorization: `Bearer ${token}` },
         })
         if (res.ok) {
@@ -199,7 +221,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
   const handleFollowUser = async (userId: string) => {
     setFollowingInProgress(prev => new Set(prev).add(userId))
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/user/follow/${userId}`, {
+      const res = await fetch(`http://localhost:8080/api/v1/user/follow/${userId}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -227,7 +249,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch("http://localhost:8000/api/v1/user/preferences", {
+      const res = await fetch("http://localhost:8080/api/v1/user/preferences", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -257,7 +279,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch("http://localhost:8000/api/v1/user/preferences", {
+      const res = await fetch("http://localhost:8080/api/v1/user/preferences", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -284,10 +306,39 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
 
   return (
     <>
-      <Navbar bg="dark" variant="dark" expand="lg" fixed="top" className="shadow-sm" style={{ backgroundColor: '#141414' }}>
-        <Container>
-          <Navbar.Brand href="#">BibliophileAI</Navbar.Brand>
-          <Nav className="ms-auto">
+      <Navbar bg="dark" variant="dark" expand="lg" fixed="top" className="shadow-sm bib-nav">
+        <Container fluid className="d-flex align-items-center">
+          <Navbar.Brand href="#" className="me-3">BibliophileAI</Navbar.Brand>
+          {searchExpanded && (
+            <div className="bib-search-expanded">
+              <input
+                type="search"
+                placeholder="Search titles, authors..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onBlur={() => { if (!searchQuery.trim()) setSearchExpanded(false); }}
+                autoFocus
+                aria-label="Search books"
+              />
+            </div>
+          )}
+          <Nav className="ms-auto d-flex align-items-center">
+            <button
+              type="button"
+              className="bib-search-trigger"
+              onClick={() => setSearchExpanded(true)}
+              aria-label="Search"
+            >
+              <FaSearch />
+            </button>
+            <button
+              type="button"
+              className="bib-theme-toggle"
+              onClick={toggleTheme}
+              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            >
+              {theme === "dark" ? <FaSun /> : <FaMoon />}
+            </button>
             <Dropdown>
               <Dropdown.Toggle variant="secondary" id="dropdown-menu">
                 Menu
@@ -316,84 +367,92 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
         </Container>
       </Navbar>
 
-      <div className="container-fluid" style={{ marginTop: "75px", backgroundColor: "#141414", minHeight: "100vh", padding: 0 }}>
+      <div
+        className={`container-fluid ${searchExpanded ? "bib-blurred" : ""}`}
+        style={{ marginTop: "75px", backgroundColor: "var(--bib-bg)", minHeight: "100vh", padding: 0, transition: "filter 0.3s ease" }}
+      >
         <div className="row" style={{ margin: 0 }}>
           {/* Main Content Area */}
           <div className="col-lg-9 col-md-8" style={{ padding: 0 }}>
-            {selectedBook ? (
-              <BookView book={selectedBook} token={token} onBack={() => setSelectedBook(null)} />
-            ) : (
+            {error && (view === "preferences" || view === "author_preferences") && (
+              <div className="bib-alert-danger m-3 d-flex align-items-center justify-content-between">
+                <span>{error}</span>
+                <button type="button" className="bib-btn-secondary" style={{ padding: "0.25rem 0.5rem", fontSize: "0.875rem" }} onClick={() => setError(null)} aria-label="Dismiss">
+                  <FaTimes />
+                </button>
+              </div>
+            )}
+            {view === "profile" && (
+              <Profile token={token} onClose={() => setView("none")} />
+            )}
+            {view === "preferences" && preferences && (
+              <UpdateGenrePreferences
+                initialGenres={preferences.genres}
+                loading={loading}
+                onSave={saveGenrePreferences}
+                onCancel={() => setView("none")}
+              />
+            )}
+            {view === "author_preferences" && preferences && (
+              <UpdateAuthorPreferences
+                initialAuthors={preferences.authors}
+                loading={loading}
+                onSave={saveAuthorPreferences}
+                onCancel={() => setView("none")}
+                token={token}
+              />
+            )}
+            {view === "none" && (
               <>
-                {view === "profile" && (
-                  <Profile token={token} onClose={() => setView("none")} />
-                )}
-                {view === "preferences" && preferences && (
-                  <UpdateGenrePreferences
-                    initialGenres={preferences.genres}
-                    loading={loading}
-                    onSave={saveGenrePreferences}
-                    onCancel={() => setView("none")}
-                  />
-                )}
-                {view === "author_preferences" && preferences && (
-                  <UpdateAuthorPreferences
-                    initialAuthors={preferences.authors}
-                    loading={loading}
-                    onSave={saveAuthorPreferences}
-                    onCancel={() => setView("none")}
-                    token={token}
-                  />
-                )}
-                {view === "none" && (
-                  <>
-                    {loadingRecs ? (
-                      <div className="netflix-loading-state">
-                        <div className="netflix-loading-spinner" role="status" aria-label="Loading" />
-                        <span className="netflix-loading-text">Loading recommendations for you...</span>
-                      </div>
-                    ) : recsError ? (
-                      <Alert variant="danger">{recsError}</Alert>
-                    ) : recommendationCategories.length > 0 ? (
-                      <div className="netflix-container">
-                        {recommendationCategories.map((category) => (
-                          <NetflixRow 
-                            key={category.category} 
-                            category={category}
-                            displayTitle={getDisplayTitle(category.category)}
-                            onBookClick={setSelectedBook}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div>
-                        <h2>Recommended for you</h2>
-                        <div className="row">
-                          {recommendations.map((book) => (
-                            <div key={book.id} className="col-md-6 col-lg-4 mb-4">
-                              <div
-                                className="card h-100"
-                                style={{ cursor: "pointer" }}
-                                onClick={() => setSelectedBook(book)}
-                              >
-                                {book.thumbnail_url && (
-                                  <img src={book.thumbnail_url} className="card-img-top" alt={book.title} />
-                                )}
-                                <div className="card-body">
-                                  <h5 className="card-title">{book.title}</h5>
-                                  <p className="card-text">
-                                    {book.authors && book.authors.join(", ")}
-                                  </p>
-                                  <p className="card-text">
-                                    {book.categories && book.categories.join(", ")}
-                                  </p>
-                                </div>
+                {loadingRecs ? (
+                  <div className="netflix-loading-state">
+                    <div className="netflix-loading-spinner" role="status" aria-label="Loading" />
+                    <span className="netflix-loading-text">Loading recommendations for you...</span>
+                  </div>
+                ) : recsError ? (
+                  <div className="bib-alert-danger m-3">{recsError}</div>
+                ) : filteredCategories.length > 0 ? (
+                  <div className="netflix-container">
+                    {filteredCategories.map((category) => (
+                      <NetflixRow
+                        key={category.category}
+                        category={category}
+                        displayTitle={getDisplayTitle(category.category)}
+                        onBookClick={setSelectedBook}
+                      />
+                    ))}
+                  </div>
+                ) : recommendationCategories.length > 0 ? (
+                  <div className="netflix-container py-5 px-4 text-center" style={{ color: "var(--bib-text-muted)" }}>
+                    <p className="mb-0">No books match your search. Try a different term or clear the search.</p>
+                  </div>
+                ) : (
+                  <div className="netflix-container py-5 px-4">
+                    <h2 className="text-center" style={{ color: "var(--bib-text-title)" }}>Recommended for you</h2>
+                    <div className="row g-3">
+                      {recommendations.map((book) => (
+                        <div key={book.id} className="col-md-6 col-lg-4">
+                          <div
+                            className="netflix-item"
+                            style={{ cursor: "pointer" }}
+                            onClick={() => setSelectedBook(book)}
+                          >
+                            {book.thumbnail_url ? (
+                              <img src={book.thumbnail_url} className="netflix-item-image" alt={book.title} />
+                            ) : (
+                              <div className="netflix-item-placeholder">
+                                <span>{book.title}</span>
                               </div>
+                            )}
+                            <div className="netflix-item-overlay">
+                              <h4>{book.title}</h4>
+                              {book.authors?.length > 0 && <p>{book.authors.join(", ")}</p>}
                             </div>
-                          ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </>
             )}
@@ -402,11 +461,11 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
           {/* Right Sidebar - Follower Suggestions */}
           <div className="col-lg-3 col-md-4" style={{ padding: "1rem" }}>
             <div className="sticky-top" style={{ top: "85px" }}>
-              <Card className="shadow-sm" style={{ backgroundColor: "#1f1f1f", borderColor: "#333" }}>
-                <Card.Header style={{ backgroundColor: "#2d2d2d", borderColor: "#333", color: "#fff" }}>
+              <Card className="shadow-sm" style={{ backgroundColor: "var(--bib-bg-elevated)", borderColor: "var(--bib-border)" }}>
+                <Card.Header style={{ backgroundColor: "var(--bib-card-bg)", borderColor: "var(--bib-border)", color: "var(--bib-text)" }}>
                   <h5 className="mb-0">👥 Suggested Users</h5>
                 </Card.Header>
-                <Card.Body style={{ maxHeight: "70vh", overflowY: "auto", backgroundColor: "#1f1f1f", color: "#fff" }}>
+                <Card.Body style={{ maxHeight: "70vh", overflowY: "auto", backgroundColor: "var(--bib-bg-elevated)", color: "var(--bib-text)" }}>
                   {loadingSuggestions ? (
                     <div className="text-center py-3">
                       <Spinner animation="border" size="sm" />
@@ -447,6 +506,14 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
           </div>
         </div>
       </div>
+
+      {selectedBook && (
+        <BookOverlay
+          book={selectedBook}
+          token={token}
+          onClose={() => setSelectedBook(null)}
+        />
+      )}
     </>
   )
 }

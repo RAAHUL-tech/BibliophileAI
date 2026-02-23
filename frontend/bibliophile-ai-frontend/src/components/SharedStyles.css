@@ -1,0 +1,244 @@
+/* Uniform modal/overlay and form styles - theme-aware, used across Profile, Genre/Author prefs */
+
+.bib-modal {
+  background: var(--bib-bg-elevated);
+  color: var(--bib-text);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--bib-border);
+  max-width: 800px;
+  margin: 1.5rem auto;
+  overflow: hidden;
+  animation: bib-modal-enter 0.3s ease-out;
+  transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+@keyframes bib-modal-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.bib-modal-header {
+  background: var(--bib-card-header);
+  color: var(--bib-text-title);
+  padding: 1rem 1.5rem;
+  font-weight: 700;
+  font-size: 1.25rem;
+  text-align: center;
+  border-bottom: 1px solid var(--bib-border);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.bib-modal-body {
+  padding: 1.5rem;
+  transition: color 0.3s ease;
+}
+
+.bib-modal-body p,
+.bib-modal-body label {
+  color: var(--bib-text);
+}
+
+.bib-modal-body .text-muted {
+  color: var(--bib-text-muted) !important;
+}
+
+/* Uniform buttons */
+.bib-btn-primary {
+  background: var(--bib-accent) !important;
+  color: #fff !important;
+  border: none !important;
+  padding: 0.5rem 1.25rem;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.bib-btn-primary:hover:not(:disabled) {
+  background: var(--bib-accent-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(229, 9, 20, 0.35);
+}
+
+.bib-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.bib-btn-secondary {
+  background: var(--bib-btn-secondary-bg) !important;
+  color: var(--bib-text) !important;
+  border: 1px solid var(--bib-border) !important;
+  padding: 0.5rem 1.25rem;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.bib-btn-secondary:hover:not(:disabled) {
+  background: var(--bib-btn-secondary-hover) !important;
+  transform: translateY(-1px);
+}
+
+.bib-btn-danger-outline {
+  background: transparent !important;
+  color: var(--bib-accent) !important;
+  border: 1px solid var(--bib-accent) !important;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.bib-btn-danger-outline:hover {
+  background: rgba(229, 9, 20, 0.15) !important;
+}
+
+/* Form controls - high contrast */
+.bib-input,
+.bib-form-control {
+  background: var(--bib-input-bg) !important;
+  border: 1px solid var(--bib-input-border) !important;
+  color: var(--bib-input-text) !important;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.bib-input:focus,
+.bib-form-control:focus {
+  outline: none;
+  border-color: var(--bib-accent) !important;
+  box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.2);
+}
+
+.bib-input::placeholder,
+.bib-form-control::placeholder {
+  color: var(--bib-placeholder);
+  opacity: 1;
+}
+
+/* Toggle/chip buttons (genre, author) */
+.bib-chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.bib-chip {
+  padding: 0.5rem 1rem;
+  border-radius: 24px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: 2px solid var(--bib-border);
+  background: var(--bib-btn-secondary-bg);
+  color: var(--bib-text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bib-chip:hover {
+  border-color: var(--bib-accent);
+  background: rgba(229, 9, 20, 0.08);
+  color: var(--bib-text);
+  transform: scale(1.02);
+}
+
+.bib-chip.bib-chip-selected {
+  background: var(--bib-accent);
+  border-color: var(--bib-accent);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(229, 9, 20, 0.3);
+}
+
+.bib-chip.bib-chip-selected:hover {
+  background: var(--bib-accent-hover);
+  border-color: var(--bib-accent-hover);
+  transform: scale(1.02);
+}
+
+/* Tabs (Profile Following/Followers) */
+.bib-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--bib-border);
+  margin-bottom: 1rem;
+}
+
+.bib-tab {
+  padding: 0.6rem 1.25rem;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--bib-tab-inactive);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.bib-tab:hover {
+  color: var(--bib-text);
+}
+
+.bib-tab.bib-tab-active {
+  color: var(--bib-accent);
+  border-bottom-color: var(--bib-accent);
+}
+
+/* List items (following/followers) */
+.bib-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--bib-card-bg);
+  border: 1px solid var(--bib-border);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.bib-list-item:hover {
+  background: var(--bib-bg-elevated);
+}
+
+.bib-list-item .bib-link {
+  color: var(--bib-accent);
+  cursor: pointer;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.bib-list-item .bib-link:hover {
+  text-decoration: underline;
+}
+
+/* Alerts */
+.bib-alert-danger {
+  background: rgba(229, 9, 20, 0.12);
+  color: var(--bib-accent);
+  border: 1px solid rgba(229, 9, 20, 0.3);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.bib-alert-info {
+  background: var(--bib-tab-active-bg);
+  color: var(--bib-text);
+  border: 1px solid var(--bib-border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}

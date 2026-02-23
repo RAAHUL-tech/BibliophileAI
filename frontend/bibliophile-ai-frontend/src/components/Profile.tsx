@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import BookView from "./BookView";
+import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import "./SharedStyles.css";
+import "./NetflixStyles.css";
 
 interface ProfileProps {
   token: string;
@@ -51,7 +54,7 @@ export default function Profile({ token, onClose }: ProfileProps) {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch("http://localhost:8000/api/v1/user/profile", {
+        const res = await fetch("http://localhost:8080/api/v1/user/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -75,7 +78,7 @@ export default function Profile({ token, onClose }: ProfileProps) {
   useEffect(() => {
     const fetchFollowersAndFollowing = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/v1/user/my-followers", {
+        const res = await fetch("http://localhost:8080/api/v1/user/my-followers", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -101,7 +104,7 @@ export default function Profile({ token, onClose }: ProfileProps) {
   useEffect(() => {
     const fetchBookmarks = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/v1/user/bookmarks", {
+        const res = await fetch("http://localhost:8080/api/v1/user/bookmarks", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -131,7 +134,7 @@ export default function Profile({ token, onClose }: ProfileProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("http://localhost:8000/user/profile_update", {
+      const res = await fetch("http://localhost:8080/user/profile_update", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -167,7 +170,7 @@ export default function Profile({ token, onClose }: ProfileProps) {
 
   const handleUnfollow = async (targetUserId: string) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/user/follow/${targetUserId}`, {
+      const res = await fetch(`http://localhost:8080/api/v1/user/follow/${targetUserId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -191,7 +194,7 @@ export default function Profile({ token, onClose }: ProfileProps) {
   // Follow back button handler
   const handleFollow = async (targetUserId: string) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/user/follow/${targetUserId}`, {
+      const res = await fetch(`http://localhost:8080/api/v1/user/follow/${targetUserId}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -210,7 +213,7 @@ export default function Profile({ token, onClose }: ProfileProps) {
 
   const handleViewFollowersList = async (userId: string) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/user/followers/${userId}`, {
+      const res = await fetch(`http://localhost:8080/api/v1/user/followers/${userId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -243,25 +246,22 @@ export default function Profile({ token, onClose }: ProfileProps) {
   if (viewingFollowersOf) {
     return (
       <div className="container my-4">
-        <div className="card shadow-lg mx-auto" style={{ maxWidth: 800 }}>
-          <div className="card-header text-center bg-info text-white">
-            <h4>Followers List</h4>
-          </div>
-          <div className="card-body">
-            <button className="btn btn-secondary mb-3" onClick={closeFollowersView}>
+        <div className="bib-modal">
+          <div className="bib-modal-header">Followers List</div>
+          <div className="bib-modal-body">
+            <button type="button" className="bib-btn-secondary mb-3" onClick={closeFollowersView}>
               ← Back to Profile
             </button>
-
             {viewingFollowersList.length > 0 ? (
-              <div className="list-group">
+              <div>
                 {viewingFollowersList.map((follower) => (
-                  <div key={follower.id} className="list-group-item d-flex justify-content-between align-items-center">
+                  <div key={follower.id} className="bib-list-item">
                     <span>{follower.username}</span>
                     {!followingUserIds.has(follower.id) && follower.id !== profile?.id && (
-                    <button className="btn btn-sm btn-outline-primary" onClick={() => handleFollow(follower.id)}>
-                      Follow Back
-                    </button>
-                  )}
+                      <button type="button" className="bib-btn-primary" style={{ padding: "0.35rem 0.75rem", fontSize: "0.875rem" }} onClick={() => handleFollow(follower.id)}>
+                        Follow Back
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -274,49 +274,50 @@ export default function Profile({ token, onClose }: ProfileProps) {
     );
   }
 
+  const bookmarksSliderRef = useRef<HTMLDivElement>(null);
+
+  const scrollBookmarks = (dir: "left" | "right") => {
+    if (!bookmarksSliderRef.current) return;
+    bookmarksSliderRef.current.scrollBy({ left: dir === "left" ? -320 : 320, behavior: "smooth" });
+  };
+
   // Main Profile View
   return (
     <div className="container my-4">
       {selectedBook ? (
         <BookView book={selectedBook} token={token} onBack={closeBookView} />
       ) : (
-        <div className="card shadow-lg mx-auto" style={{ maxWidth: 800 }}>
-          <div className="card-header text-center bg-primary text-white">
-            <h4>User Profile</h4>
-          </div>
-          <div className="card-body">
+        <div className="bib-modal">
+          <div className="bib-modal-header">User Profile</div>
+          <div className="bib-modal-body">
             {loading ? (
-              <p className="text-center">Loading...</p>
+              <p className="text-center" style={{ color: "var(--bib-text-muted)" }}>Loading...</p>
             ) : error ? (
-              <p className="text-danger">{error}</p>
+              <p className="bib-alert-danger">{error}</p>
             ) : profile ? (
               <>
-                <p>
-                  <b>Name:</b> {profile.username}
-                </p>
-                <p>
-                  <b>Email:</b> {profile.email}
-                </p>
+                <p><b>Name:</b> {profile.username}</p>
+                <p><b>Email:</b> {profile.email}</p>
 
                 {isEditing ? (
                   <>
                     <div className="mb-3">
-                      <label className="form-label">Age</label>
+                      <label className="form-label" style={{ color: "var(--bib-text)" }}>Age</label>
                       <input
                         type="number"
-                        className="form-control"
+                        className="bib-input form-control"
                         value={age}
                         onChange={(e) => setAge(e.target.value)}
-                        min="10"
-                        max="120"
+                        min={10}
+                        max={120}
                         required
                       />
                     </div>
                     <div className="mb-3">
-                      <label className="form-label">Pincode</label>
+                      <label className="form-label" style={{ color: "var(--bib-text)" }}>Pincode</label>
                       <input
                         type="text"
-                        className="form-control"
+                        className="bib-input form-control"
                         value={pincode}
                         onChange={(e) => setPincode(e.target.value)}
                         minLength={5}
@@ -325,125 +326,117 @@ export default function Profile({ token, onClose }: ProfileProps) {
                       />
                     </div>
                     <div className="d-flex gap-2 mb-4">
-                      <button className="btn btn-success" onClick={handleSave} disabled={loading}>
+                      <button type="button" className="bib-btn-primary" onClick={handleSave} disabled={loading}>
                         {loading ? "Saving..." : "Save"}
                       </button>
-                      <button className="btn btn-secondary" onClick={handleCancel} disabled={loading}>
+                      <button type="button" className="bib-btn-secondary" onClick={handleCancel} disabled={loading}>
                         Cancel
                       </button>
                     </div>
                   </>
                 ) : (
                   <>
-                    <p>
-                      <b>Age:</b> {profile.age || "Not specified"}
-                    </p>
-                    <p>
-                      <b>Pincode:</b> {profile.pincode || "Not specified"}
-                    </p>
+                    <p><b>Age:</b> {profile.age ?? "Not specified"}</p>
+                    <p><b>Pincode:</b> {profile.pincode ?? "Not specified"}</p>
 
+                    <div className="bib-tabs">
+                      <button
+                        type="button"
+                        className={`bib-tab ${activeTab === "following" ? "bib-tab-active" : ""}`}
+                        onClick={() => setActiveTab("following")}
+                      >
+                        Following ({following.length})
+                      </button>
+                      <button
+                        type="button"
+                        className={`bib-tab ${activeTab === "followers" ? "bib-tab-active" : ""}`}
+                        onClick={() => setActiveTab("followers")}
+                      >
+                        Followers ({followers.length})
+                      </button>
+                    </div>
                     <div>
-                      <ul className="nav nav-tabs mb-3">
-                        <li className="nav-item">
-                          <button
-                            className={`nav-link ${activeTab === "following" ? "active" : ""}`}
-                            onClick={() => setActiveTab("following")}
-                          >
-                            Following ({following.length})
-                          </button>
-                        </li>
-                        <li className="nav-item">
-                          <button
-                            className={`nav-link ${activeTab === "followers" ? "active" : ""}`}
-                            onClick={() => setActiveTab("followers")}
-                          >
-                            Followers ({followers.length})
-                          </button>
-                        </li>
-                      </ul>
-                      <div>
-                        {activeTab === "following" ? (
-                          <div className="list-group mb-4">
-                            {following.map((user) => (
-                              <div
-                                key={user.id}
-                                className="list-group-item d-flex justify-content-between align-items-center"
-                              >
-                                <span
-                                  style={{ cursor: "pointer", color: "#0d6efd" }}
-                                  onClick={() => handleViewFollowersList(user.id)}
-                                >
-                                  {user.username}
-                                </span>
-                                <button
-                                  className="btn btn-sm btn-outline-danger"
-                                  onClick={() => handleUnfollow(user.id)}
-                                >
-                                  Unfollow
+                      {activeTab === "following" ? (
+                        <div className="mb-4">
+                          {following.map((user) => (
+                            <div key={user.id} className="bib-list-item">
+                              <span className="bib-link" onClick={() => handleViewFollowersList(user.id)}>
+                                {user.username}
+                              </span>
+                              <button type="button" className="bib-btn-danger-outline" onClick={() => handleUnfollow(user.id)}>
+                                Unfollow
+                              </button>
+                            </div>
+                          ))}
+                          {following.length === 0 && <p className="text-muted">No following users.</p>}
+                        </div>
+                      ) : (
+                        <div className="mb-4">
+                          {followers.map((user) => (
+                            <div key={user.id} className="bib-list-item">
+                              <span className="bib-link" onClick={() => handleViewFollowersList(user.id)}>
+                                {user.username}
+                              </span>
+                              {!followingUserIds.has(user.id) && user.id !== profile?.id && (
+                                <button type="button" className="bib-btn-primary" style={{ padding: "0.35rem 0.75rem", fontSize: "0.875rem" }} onClick={() => handleFollow(user.id)}>
+                                  Follow Back
                                 </button>
-                              </div>
-                            ))}
-                            {following.length === 0 && <p className="text-muted">No following users.</p>}
-                          </div>
-                        ) : (
-                          <div className="list-group mb-4">
-                            {followers.map((user) => (
-                              <div
-                                key={user.id}
-                                className="list-group-item d-flex justify-content-between align-items-center"
-                              >
-                                <span
-                                  style={{ cursor: "pointer", color: "#0d6efd" }}
-                                  onClick={() => handleViewFollowersList(user.id)}
-                                >
-                                  {user.username}
-                                </span>
-                                {!followingUserIds.has(user.id) && user.id !== profile?.id && (
-                                  <button className="btn btn-sm btn-outline-primary" onClick={() => handleFollow(user.id)}>
-                                    Follow Back
-                                  </button>
-                                )}
-                              </div>
-                            ))}
-                            {followers.length === 0 && <p className="text-muted">No followers found.</p>}
-                          </div>
-                        )}
-                      </div>
+                              )}
+                            </div>
+                          ))}
+                          {followers.length === 0 && <p className="text-muted">No followers found.</p>}
+                        </div>
+                      )}
                     </div>
 
-                    <button className="btn btn-outline-primary w-100 mb-4" onClick={handleEdit}>
+                    <button type="button" className="bib-btn-secondary w-100 mb-4" onClick={handleEdit}>
                       Edit Profile
                     </button>
                   </>
                 )}
 
-                {/* Bookmarked Books Grid */}
                 {bookmarks.length > 0 && (
                   <div className="mt-4">
-                    <h5>⭐ Your Bookmarks</h5>
-                    <div className="row">
-                      {bookmarks.map((book) => (
-                        <div key={book.id} className="col-md-4 col-lg-3 mb-4">
-                          <div className="card h-100" style={{ cursor: "pointer" }} onClick={() => setSelectedBook(book)}>
-                            {book.thumbnail_url && <img src={book.thumbnail_url} className="card-img-top" alt={book.title} style={{ height: "200px", objectFit: "cover" }}/>}
-                            <div className="card-body d-flex flex-column">
-                              <h6 className="card-title mb-1">{book.title}</h6>
-                              <p className="card-text text-muted mb-1">by {book.authors.join(", ")}</p>
-                              <p className="card-text small text-secondary mt-auto">{book.categories.slice(0, 2).join(", ")}</p>
+                    <h5 style={{ color: "var(--bib-text-title)", marginBottom: "0.75rem" }}>⭐ Your Bookmarks</h5>
+                    <div className="netflix-row-content" style={{ position: "relative" }}>
+                      <button type="button" className="netflix-scroll-button left" onClick={() => scrollBookmarks("left")} aria-label="Scroll left">
+                        <FaChevronLeft />
+                      </button>
+                      <div className="netflix-slider" ref={bookmarksSliderRef} style={{ padding: "1rem 56px" }}>
+                        {bookmarks.map((book) => (
+                          <div
+                            key={book.id}
+                            className="netflix-item"
+                            onClick={() => setSelectedBook(book)}
+                            onKeyDown={(e) => e.key === "Enter" && setSelectedBook(book)}
+                            role="button"
+                            tabIndex={0}
+                          >
+                            {book.thumbnail_url ? (
+                              <img src={book.thumbnail_url} className="netflix-item-image" alt={book.title} />
+                            ) : (
+                              <div className="netflix-item-placeholder"><span>{book.title}</span></div>
+                            )}
+                            <div className="netflix-item-overlay">
+                              <h4>{book.title}</h4>
+                              <p>{book.authors?.join(", ")}</p>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                      <button type="button" className="netflix-scroll-button right" onClick={() => scrollBookmarks("right")} aria-label="Scroll right">
+                        <FaChevronRight />
+                      </button>
                     </div>
                   </div>
                 )}
 
-                <button className="btn btn-secondary w-100" onClick={onClose} disabled={loading}>
+                <button type="button" className="bib-btn-secondary w-100" onClick={onClose} disabled={loading}>
                   Close
                 </button>
               </>
             ) : (
-              <p className="text-warning">No profile data.</p>
+              <p style={{ color: "var(--bib-text-muted)" }}>No profile data.</p>
             )}
           </div>
         </div>

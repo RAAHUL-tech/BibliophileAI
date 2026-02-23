@@ -33,7 +33,7 @@ const [sessionId, setSessionId] = useState<string | null>(() => {
   // Otherwise, check if the user has completed profile prefs.
   const fetchPreferences = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/v1/user/preferences', {
+      const res = await fetch('http://localhost:8080/api/v1/user/preferences', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -69,7 +69,7 @@ const [sessionId, setSessionId] = useState<string | null>(() => {
     console.log("Logout called with:", { sessionId, token });
 
     if (sessionId && token) {
-      const res = await fetch("http://localhost:8000/api/v1/user/logout", {
+      const res = await fetch("http://localhost:8080/api/v1/user/logout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -110,7 +110,7 @@ const handleGoogleAuth = async (credential: string) => {
  setGoogleMsg(null);
   try {
     const endpoint = authMode === 'register' ? '/google-register' : '/google-login';
-    const res = await fetch(`http://localhost:8000/api/v1/user${endpoint}`, {
+    const res = await fetch(`http://localhost:8080/api/v1/user${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ credential }),
