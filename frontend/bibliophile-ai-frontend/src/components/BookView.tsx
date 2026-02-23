@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ReactReader } from "react-reader";
 import { FaStar, FaRegStar } from "react-icons/fa";
+import "./SharedStyles.css";
 
 interface BookRecommendation {
   id: string;
@@ -40,7 +41,7 @@ export default function BookView({ book, token, onBack }: BookViewProps) {
 
   useEffect(() => {
     // Load bookmark status for the current user and book
-    fetch(`http://localhost:8000/api/v1/user/books/${book.id}/bookmark`, {
+    fetch(`http://localhost:8080/api/v1/user/books/${book.id}/bookmark`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -51,7 +52,7 @@ export default function BookView({ book, token, onBack }: BookViewProps) {
   // Fetch reviews and ratings
   useEffect(() => {
     setLoadingReviews(true);
-    fetch(`http://localhost:8000/api/v1/user/books/${book.id}/reviews-ratings`, {
+    fetch(`http://localhost:8080/api/v1/user/books/${book.id}/reviews-ratings`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())
@@ -65,7 +66,7 @@ export default function BookView({ book, token, onBack }: BookViewProps) {
 
  useEffect(() => {
   if (!hasReportedRead.current && book.id && token) {
-    fetch(`http://localhost:8000/api/v1/user/books/${book.id}/track-read`, {
+    fetch(`http://localhost:8080/api/v1/user/books/${book.id}/track-read`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`
@@ -80,7 +81,7 @@ useEffect(() => {
     if (location === lastSentPage.current) return;
 
     // Send page turn event on location change
-    fetch(`http://localhost:8000/api/v1/user/books/${book.id}/page-turn`, {
+    fetch(`http://localhost:8080/api/v1/user/books/${book.id}/page-turn`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -104,7 +105,7 @@ useEffect(() => {
     setSubmitting(true);
     setReviewMsg(null);
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/user/books/${book.id}/review`, {
+      const res = await fetch(`http://localhost:8080/api/v1/user/books/${book.id}/review`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -117,7 +118,7 @@ useEffect(() => {
         setNewRating(0);
         setNewReview("");
         // Refetch all reviews to avoid stale state and ensure DB consistency
-        fetch(`http://localhost:8000/api/v1/user/books/${book.id}/reviews-ratings`, {
+        fetch(`http://localhost:8080/api/v1/user/books/${book.id}/reviews-ratings`, {
         headers: { Authorization: `Bearer ${token}` }
         })
         .then((res) => res.json())
@@ -140,7 +141,7 @@ useEffect(() => {
 
 
   const handleBookmarkToggle = async () => {
-    const url = `http://localhost:8000/api/v1/user/books/${book.id}/bookmark`;
+    const url = `http://localhost:8080/api/v1/user/books/${book.id}/bookmark`;
     try {
       const res = await fetch(url, {
         method: bookmarked ? "DELETE" : "POST",
@@ -159,21 +160,33 @@ useEffect(() => {
 
 
   return (
-    <div className="container my-4">
-      <button className="btn btn-secondary mb-3" onClick={onBack}>
-        ← Back
-      </button>
-      <button 
-        className="btn btn-outline-warning"
-        onClick={handleBookmarkToggle} 
-        title={bookmarked ? "Remove bookmark" : "Add bookmark"}
-        style={{ fontSize: 24 }}
-      >
-        {bookmarked ? <FaStar /> : <FaRegStar />}
-      </button>
-      {bookmarkMsg && <div className="small mt-2 text-info">{bookmarkMsg}</div>}
+    <div className="container my-4" style={{ color: "var(--bib-text)" }}>
+      <div className="d-flex align-items-center gap-2 mb-3 flex-wrap">
+        <button type="button" className="bib-btn-secondary" onClick={onBack}>
+          ← Back
+        </button>
+        <button
+          type="button"
+          className="bib-btn-secondary"
+          onClick={handleBookmarkToggle}
+          title={bookmarked ? "Remove bookmark" : "Add bookmark"}
+          style={{ fontSize: "1.25rem", padding: "0.5rem 0.75rem" }}
+        >
+          {bookmarked ? <FaStar style={{ color: "var(--bib-accent)" }} /> : <FaRegStar />}
+        </button>
+        {bookmarkMsg && (
+          <span className="small" style={{ color: "var(--bib-text-muted)" }}>{bookmarkMsg}</span>
+        )}
+      </div>
 
-      <div className="card shadow-lg mx-auto" style={{ maxWidth: 900 }}>
+      <div
+        className="shadow-lg mx-auto rounded-3 overflow-hidden"
+        style={{
+          maxWidth: 900,
+          background: "var(--bib-bg-elevated)",
+          border: "1px solid var(--bib-border)",
+        }}
+      >
         <div className="row g-0">
           <div className="col-md-4">
             {book.thumbnail_url && (
@@ -186,33 +199,27 @@ useEffect(() => {
             )}
           </div>
           <div className="col-md-8">
-            <div className="card-body">
-              <h3>{book.title}</h3>
-              <p>
-                <strong>Authors:</strong> {book.authors.join(", ")}
-              </p>
-              <p>
-                <strong>Genres:</strong> {book.categories.join(", ")}
-              </p>
-              <div>
-                <strong>Rating:</strong> {avgRating ? avgRating.toFixed(2) : "N/A"} / 5
-              </div>
+            <div className="p-4" style={{ color: "var(--bib-text)" }}>
+              <h3 style={{ color: "var(--bib-text-title)" }}>{book.title}</h3>
+              <p><strong>Authors:</strong> {book.authors.join(", ")}</p>
+              <p><strong>Genres:</strong> {book.categories.join(", ")}</p>
+              <p><strong>Rating:</strong> {avgRating ? avgRating.toFixed(2) : "N/A"} / 5</p>
 
               <div className="mt-3">
                 <strong>Reviews:</strong>
                 {loadingReviews ? (
-                  <span className="ms-2">Loading...</span>
+                  <span className="ms-2" style={{ color: "var(--bib-text-muted)" }}>Loading...</span>
                 ) : reviews.length === 0 ? (
-                  <span className="ms-2 text-muted">No reviews yet.</span>
+                  <span className="ms-2" style={{ color: "var(--bib-text-muted)" }}>No reviews yet.</span>
                 ) : (
-                  <ul className="list-unstyled">
+                  <ul className="list-unstyled mt-2">
                     {reviews.map((review, idx) => (
-                      <li key={idx} className="border-bottom pb-2 mb-2">
+                      <li key={idx} className="pb-2 mb-2 border-bottom" style={{ borderBottomColor: "var(--bib-border)" }}>
                         <div>
                           <strong>{review.user}</strong>
-                          <span className="ms-2 text-warning">({review.rating}⭐)</span>
+                          <span className="ms-2" style={{ color: "var(--bib-accent)" }}>({review.rating}⭐)</span>
                         </div>
-                        <small>{review.text}</small>
+                        <small style={{ color: "var(--bib-text-muted)" }}>{review.text}</small>
                       </li>
                     ))}
                   </ul>
@@ -220,9 +227,9 @@ useEffect(() => {
               </div>
 
               <form onSubmit={handleReviewSubmit} className="mt-3">
-                <label className="form-label">Your Rating</label>
+                <label className="form-label" style={{ color: "var(--bib-text)" }}>Your Rating</label>
                 <select
-                  className="form-select mb-2"
+                  className="bib-input form-select mb-2 w-100"
                   value={newRating}
                   onChange={(e) => setNewRating(Number(e.target.value))}
                   required
@@ -236,20 +243,19 @@ useEffect(() => {
                 </select>
                 <input
                   type="text"
-                  className="form-control mb-2"
+                  className="bib-input form-control mb-2"
                   placeholder="Write your review..."
                   value={newReview}
                   onChange={(e) => setNewReview(e.target.value)}
                   required
                 />
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                <button type="submit" className="bib-btn-primary" disabled={submitting}>
                   {submitting ? "Submitting..." : "Submit Review"}
                 </button>
                 {reviewMsg && (
                   <div
-                    className={`mt-2 small ${
-                      reviewMsg.includes("submitted") ? "text-success" : "text-danger"
-                    }`}
+                    className="mt-2 small"
+                    style={{ color: reviewMsg.includes("submitted") ? "var(--bib-accent)" : "var(--bib-text-muted)" }}
                   >
                     {reviewMsg}
                   </div>
@@ -259,21 +265,21 @@ useEffect(() => {
           </div>
         </div>
 
-       <div className="card-footer">
-        <h5>Read the Book</h5>
-        {book.id ? (
-          <div style={{ height: "600px", border: "1px solid #ddd", background: "#fff" }}>
-            <ReactReader
-              url={`http://localhost:8000/api/v1/user/proxy-epub/${book.id}/`}
-              location={location}
-              locationChanged={setLocation}
-              showToc={false}
-            />
-          </div>
-        ) : (
-          <p>No EPUB available.</p>
-        )}
-      </div>
+        <div className="p-3 border-top" style={{ borderColor: "var(--bib-border)", background: "var(--bib-card-header)" }}>
+          <h5 style={{ color: "var(--bib-text-title)" }}>Read the Book</h5>
+          {book.id ? (
+            <div style={{ height: "600px", border: "1px solid var(--bib-border)", background: "var(--bib-bg-elevated)", borderRadius: 8 }}>
+              <ReactReader
+                url={`http://localhost:8080/api/v1/user/proxy-epub/${book.id}/`}
+                location={location}
+                locationChanged={setLocation}
+                showToc={false}
+              />
+            </div>
+          ) : (
+            <p style={{ color: "var(--bib-text-muted)" }}>No EPUB available.</p>
+          )}
+        </div>
       </div>
     </div>
   );

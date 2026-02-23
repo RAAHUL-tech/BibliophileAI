@@ -13,8 +13,8 @@ export default function UserOnboarding({ token, onComplete }: UserOnboardingProp
   const [step, setStep] = useState(0);
   const [genres, setGenres] = useState<string[]>([]);
   const [authors, setAuthors] = useState<string[]>([]);
-  const [pincode, setPincode] = useState<string>("");
-  const [age, setAge] = useState<number | undefined>();
+  const [pincode] = useState<string>("");
+  const [age] = useState<number | undefined>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +35,7 @@ export default function UserOnboarding({ token, onComplete }: UserOnboardingProp
   setLoading(true);
   setError(null);
   try {
-    const res = await fetch("http://localhost:8000/api/v1/user/preferences", {
+    const res = await fetch("http://localhost:8080/api/v1/user/preferences", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

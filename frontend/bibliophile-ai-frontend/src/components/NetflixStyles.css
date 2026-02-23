@@ -1,34 +1,66 @@
-/* Netflix-style CSS for BibliophileAI */
+/* Netflix-style CSS for BibliophileAI - theme-aware, 5 visible per row, fade edges */
 
 .netflix-container {
   padding: 0;
-  background-color: #141414;
+  background-color: var(--bib-bg);
   min-height: 100vh;
-  color: #fff;
+  color: var(--bib-text);
+  transition: background-color 0.3s ease;
 }
 
 .netflix-row {
   margin-bottom: 3rem;
   padding: 0 4%;
+  animation: netflix-row-enter 0.5s ease-out backwards;
+}
+
+.netflix-row:nth-child(1) { animation-delay: 0.05s; }
+.netflix-row:nth-child(2) { animation-delay: 0.1s; }
+.netflix-row:nth-child(3) { animation-delay: 0.15s; }
+.netflix-row:nth-child(4) { animation-delay: 0.2s; }
+.netflix-row:nth-child(5) { animation-delay: 0.25s; }
+.netflix-row:nth-child(6) { animation-delay: 0.3s; }
+.netflix-row:nth-child(7) { animation-delay: 0.35s; }
+.netflix-row:nth-child(8) { animation-delay: 0.4s; }
+
+@keyframes netflix-row-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .netflix-row-title {
   font-size: 1.4vw;
   font-weight: 600;
   margin-bottom: 0.5rem;
-  color: #e5e5e5;
+  color: var(--bib-text-title);
   padding-left: 0;
+  transition: color 0.3s ease;
 }
 
 .netflix-row-description {
   font-size: 0.9vw;
-  color: #b3b3b3;
+  color: var(--bib-text-muted);
   margin-bottom: 1rem;
   padding-left: 0;
+  transition: color 0.3s ease;
 }
 
 .netflix-row-content {
   position: relative;
+}
+
+/* Show at most 5 items in view; rest via scroll. Item width ~18.5% of row so 5 fit with gaps */
+.netflix-slider-wrap {
+  position: relative;
+  width: 100%;
+  margin: 0 -4%;
+  padding: 0 4%;
 }
 
 .netflix-slider {
@@ -36,37 +68,54 @@
   overflow-x: auto;
   overflow-y: hidden;
   scroll-behavior: smooth;
-  padding: 1rem 56px 1rem 56px; /* space for left/right scroll buttons */
-  gap: 0.5rem;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+  padding: 1rem 56px;
+  gap: 0.75rem;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
 }
 
 .netflix-slider::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
+  display: none;
 }
 
+/* Each item: snap, fixed width so ~5 visible in typical viewport */
 .netflix-item {
   flex: 0 0 auto;
-  width: 200px;
-  height: 300px;
+  width: clamp(140px, 18vw, 200px);
+  height: clamp(200px, 27vw, 300px);
   position: relative;
   cursor: pointer;
-  transition: transform 0.3s ease, z-index 0.3s ease;
-  border-radius: 4px;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), z-index 0.3s ease, box-shadow 0.35s ease, opacity 0.25s ease;
+  border-radius: 6px;
   overflow: hidden;
+  scroll-snap-align: start;
+  scroll-snap-stop: normal;
+  will-change: transform;
 }
 
 .netflix-item:hover {
-  transform: scale(1.15);
+  transform: scale(1.1);
   z-index: 10;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+/* Smoother slide feel: items ease when row is scrolled (visual feedback) */
+.netflix-slider:active .netflix-item {
+  transition-duration: 0.2s;
 }
 
 .netflix-item-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 6px;
+  transition: opacity 0.25s ease;
+}
+
+.netflix-item:hover .netflix-item-image {
+  opacity: 0.95;
 }
 
 .netflix-item-placeholder {
@@ -81,7 +130,7 @@
   color: white;
   font-weight: 600;
   font-size: 0.9rem;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .netflix-item-overlay {
@@ -89,11 +138,11 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, transparent 100%);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 0%, transparent 70%);
   padding: 1rem;
   opacity: 0;
-  transition: opacity 0.3s ease;
-  border-radius: 0 0 4px 4px;
+  transition: opacity 0.25s ease;
+  border-radius: 0 0 6px 6px;
 }
 
 .netflix-item:hover .netflix-item-overlay {
@@ -119,7 +168,39 @@
   text-overflow: ellipsis;
 }
 
-/* Scroll buttons - always visible, Netflix-style */
+/* Left/right fade masks - old books “fade away” at edges */
+.netflix-row-content::before,
+.netflix-row-content::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  z-index: 20;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.netflix-row-content::before {
+  left: 0;
+  background: linear-gradient(to right, var(--bib-bg) 0%, transparent 100%);
+}
+
+.netflix-row-content::after {
+  right: 0;
+  background: linear-gradient(to left, var(--bib-bg) 0%, transparent 100%);
+}
+
+[data-theme="light"] .netflix-row-content::before,
+[data-theme="light"] .netflix-row-content::after {
+  background: linear-gradient(to right, var(--bib-bg) 0%, transparent 100%);
+}
+
+[data-theme="light"] .netflix-row-content::after {
+  background: linear-gradient(to left, var(--bib-bg) 0%, transparent 100%);
+}
+
+/* Scroll buttons */
 .netflix-scroll-button {
   position: absolute;
   top: 50%;
@@ -129,16 +210,22 @@
   color: #fff;
   font-size: 2rem;
   width: 56px;
-  min-height: 300px;
+  min-height: clamp(200px, 27vw, 300px);
   cursor: pointer;
   z-index: 25;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background 0.2s ease, color 0.2s ease;
-  border-radius: 0 4px 4px 0;
+  border-radius: 0 6px 6px 0;
   box-shadow: 2px 0 12px rgba(0, 0, 0, 0.5);
   -webkit-tap-highlight-color: transparent;
+}
+
+[data-theme="light"] .netflix-scroll-button {
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
 }
 
 .netflix-scroll-button:hover {
@@ -146,22 +233,211 @@
   color: #fff;
 }
 
-.netflix-scroll-button:focus {
-  outline: 2px solid rgba(255, 255, 255, 0.6);
-  outline-offset: 2px;
-}
-
 .netflix-scroll-button.left {
   left: 0;
-  border-radius: 4px 0 0 4px;
+  border-radius: 6px 0 0 6px;
   box-shadow: -2px 0 12px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .netflix-scroll-button.left {
+  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.15);
 }
 
 .netflix-scroll-button.right {
   right: 0;
 }
 
-/* Responsive design */
+.netflix-scroll-button:focus {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
+}
+
+/* Loading state */
+.netflix-loading-state {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  gap: 1.5rem;
+  background: var(--bib-bg);
+}
+
+.netflix-loading-state .netflix-loading-text {
+  color: var(--bib-text-muted);
+  font-size: 1.25rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.netflix-loading-state .netflix-loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(229, 9, 20, 0.3);
+  border-top-color: var(--bib-accent);
+  border-radius: 50%;
+  animation: netflix-spin 0.9s linear infinite;
+}
+
+@keyframes netflix-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Navbar - theme-aware (dark and light) */
+.bib-nav {
+  background: var(--bib-bg-nav) !important;
+  transition: background 0.3s ease;
+}
+
+.bib-nav .navbar-brand,
+.bib-nav.navbar-dark .navbar-brand {
+  color: var(--bib-text-title) !important;
+  font-weight: 700;
+  font-size: 1.5rem;
+}
+
+.bib-nav .nav-link,
+.bib-nav.navbar-dark .nav-link {
+  color: var(--bib-text-title) !important;
+}
+
+.bib-nav .dropdown-toggle,
+.bib-nav .btn-secondary,
+.bib-nav .btn.show {
+  background: var(--bib-btn-secondary-bg) !important;
+  border-color: var(--bib-border) !important;
+  color: var(--bib-text-title) !important;
+}
+
+.bib-nav .dropdown-toggle:hover,
+.bib-nav .btn-secondary:hover {
+  background: var(--bib-btn-secondary-hover) !important;
+  border-color: var(--bib-border) !important;
+  color: var(--bib-text-title) !important;
+}
+
+.bib-nav .navbar-toggler {
+  border-color: var(--bib-border);
+  color: var(--bib-text-title);
+}
+
+.bib-nav .navbar-toggler-icon {
+  filter: inherit;
+}
+
+[data-theme="light"] .bib-nav .navbar-toggler-icon {
+  filter: invert(1);
+}
+
+.bib-nav .bib-search-trigger,
+.bib-nav .bib-theme-toggle {
+  color: var(--bib-text-title) !important;
+}
+
+.bib-search-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  color: var(--bib-text-title);
+  font-size: 1.25rem;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.bib-search-trigger:hover {
+  background: var(--bib-search-bg);
+  color: var(--bib-text-title);
+}
+
+.bib-search-expanded {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  max-width: 400px;
+  margin-left: 1rem;
+  animation: bib-search-expand 0.3s ease-out;
+}
+
+@keyframes bib-search-expand {
+  from {
+    opacity: 0;
+    max-width: 0;
+    margin-left: 0;
+  }
+  to {
+    opacity: 1;
+    max-width: 400px;
+    margin-left: 1rem;
+  }
+}
+
+.bib-search-expanded input {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  border: 1px solid var(--bib-border);
+  border-radius: 4px;
+  background: var(--bib-search-bg);
+  color: var(--bib-text);
+  outline: none;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.bib-search-expanded input::placeholder {
+  color: var(--bib-placeholder);
+}
+
+.bib-search-expanded input:focus {
+  border-color: var(--bib-accent);
+  background: var(--bib-search-focus);
+}
+
+/* Theme toggle */
+.bib-theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  color: var(--bib-text-title);
+  font-size: 1.1rem;
+  cursor: pointer;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+  transition: background 0.2s ease;
+}
+
+.bib-theme-toggle:hover {
+  background: var(--bib-search-bg);
+}
+
+/* Nav dropdown theme-aware */
+.bib-nav .dropdown-menu {
+  background: var(--bib-bg-elevated);
+  border-color: var(--bib-border);
+}
+
+.bib-nav .dropdown-item {
+  color: var(--bib-text);
+}
+
+.bib-nav .dropdown-item:hover {
+  background: var(--bib-search-bg);
+  color: var(--bib-text);
+}
+
+.bib-nav .dropdown-item.text-danger:hover {
+  background: rgba(229, 9, 20, 0.15);
+}
+
+/* Responsive */
 @media (max-width: 768px) {
   .netflix-row {
     padding: 0 2%;
@@ -176,8 +452,8 @@
   }
 
   .netflix-item {
-    width: 150px;
-    height: 225px;
+    width: 130px;
+    height: 190px;
   }
 
   .netflix-slider {
@@ -187,15 +463,20 @@
 
   .netflix-scroll-button {
     width: 44px;
-    min-height: 225px;
+    min-height: 190px;
     font-size: 1.5rem;
+  }
+
+  .netflix-row-content::before,
+  .netflix-row-content::after {
+    width: 40px;
   }
 }
 
 @media (max-width: 480px) {
   .netflix-item {
-    width: 120px;
-    height: 180px;
+    width: 110px;
+    height: 165px;
   }
 
   .netflix-row-title {
@@ -209,58 +490,7 @@
 
   .netflix-scroll-button {
     width: 36px;
-    min-height: 180px;
+    min-height: 165px;
     font-size: 1.25rem;
-  }
-}
-
-/* Dark theme adjustments */
-.netflix-container {
-  background-color: #141414;
-}
-
-/* Smooth scrolling */
-.netflix-slider {
-  scroll-padding: 1rem;
-}
-
-/* Loading state - high contrast, Netflix-style */
-.netflix-loading {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 400px;
-  color: #b3b3b3;
-}
-
-.netflix-loading-state {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  min-height: 60vh;
-  gap: 1.5rem;
-  background: #141414;
-}
-
-.netflix-loading-state .netflix-loading-text {
-  color: #e5e5e5;
-  font-size: 1.25rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-}
-
-.netflix-loading-state .netflix-loading-spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid rgba(229, 9, 20, 0.3);
-  border-top-color: #e50914;
-  border-radius: 50%;
-  animation: netflix-spin 0.9s linear infinite;
-}
-
-@keyframes netflix-spin {
-  to {
-    transform: rotate(360deg);
   }
 }

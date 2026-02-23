@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import "./SharedStyles.css"
 
 const allGenres = [
   "Fantasy", "Romance", "Science Fiction", "Mystery", "Thriller",
@@ -17,41 +18,51 @@ export default function UpdateGenrePreferences({
 }: UpdatePreferencesProps) {
   const [selected, setSelected] = useState<string[]>(initialGenres)
 
-  // Add this effect to update selected whenever initialGenres changes
   useEffect(() => {
     setSelected(initialGenres)
   }, [initialGenres])
 
   const toggleGenre = (genre: string) => {
-    setSelected(selected =>
-      selected.includes(genre)
-        ? selected.filter(g => g !== genre)
-        : [...selected, genre]
+    setSelected(prev =>
+      prev.includes(genre)
+        ? prev.filter(g => g !== genre)
+        : [...prev, genre]
     )
   }
 
   return (
     <div className="container my-5">
-      <div className="card shadow-lg mx-auto" style={{ maxWidth: 600 }}>
-        <div className="card-header text-center"><h4>Update Preferences</h4></div>
-        <div className="card-body">
-          <div className="row g-2 mb-3">
-            {allGenres.map(genre => (
-              <div className="col-6 col-md-4" key={genre}>
-                <button
-                  className={`btn w-100 mb-2 ${selected.includes(genre) ? "btn-primary" : "btn-outline-primary"}`}
-                  onClick={() => toggleGenre(genre)}
-                  type="button"
-                >
-                  {genre}
-                </button>
-              </div>
+      <div className="bib-modal" style={{ maxWidth: 560 }}>
+        <div className="bib-modal-header">Update Preferences</div>
+        <div className="bib-modal-body">
+          <p className="text-muted mb-3" style={{ color: "var(--bib-text-muted)" }}>
+            Choose genres you enjoy for better recommendations
+          </p>
+          <div className="bib-chip-wrap mb-4">
+            {allGenres.map((genre) => (
+              <button
+                key={genre}
+                type="button"
+                className={`bib-chip ${selected.includes(genre) ? "bib-chip-selected" : ""}`}
+                onClick={() => toggleGenre(genre)}
+              >
+                {genre}
+              </button>
             ))}
           </div>
-          <button className="btn btn-success me-2" disabled={loading || selected.length === 0} onClick={() => onSave(selected)}>
-            {loading ? "Saving..." : "Update"}
-          </button>
-          <button className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+          <div className="d-flex gap-2">
+            <button
+              type="button"
+              className="bib-btn-primary"
+              disabled={loading || selected.length === 0}
+              onClick={() => onSave(selected)}
+            >
+              {loading ? "Saving..." : "Update"}
+            </button>
+            <button type="button" className="bib-btn-secondary" onClick={onCancel}>
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -64,7 +64,7 @@ def _trigger_recommendation_refresh(path_suffix: str, user_id: str) -> None:
     """
     Fire-and-forget: POST to recommendation service internal refresh endpoint.
     Runs in background so connection failures don't block the API response.
-    Set RECOMMENDATION_SERVICE_URL (e.g. http://localhost:8001) and INTERNAL_API_KEY.
+    Set RECOMMENDATION_SERVICE_URL (e.g. http://recommendation-service:8001) and INTERNAL_API_KEY.
     """
     rec_url = os.getenv("RECOMMENDATION_SERVICE_URL", "").rstrip("/")
     internal_key = os.getenv("INTERNAL_API_KEY", "")

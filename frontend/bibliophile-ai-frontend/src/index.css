@@ -1,35 +1,52 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #141414;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+:root,
+[data-theme="dark"] {
+  --bib-bg: #141414;
+  --bib-bg-elevated: #1f1f1f;
+  --bib-bg-nav: #141414;
+  --bib-text: rgba(255, 255, 255, 0.95);
+  --bib-text-muted: #b3b3b3;
+  --bib-text-title: #e5e5e5;
+  --bib-accent: #e50914;
+  --bib-accent-hover: #f40612;
+  --bib-border: #333;
+  --bib-card-bg: #2d2d2d;
+  --bib-card-header: #181818;
+  --bib-overlay-backdrop: rgba(0, 0, 0, 0.85);
+  --bib-search-bg: rgba(255, 255, 255, 0.1);
+  --bib-search-focus: rgba(255, 255, 255, 0.2);
+  --bib-input-bg: #333;
+  --bib-input-border: #444;
+  --bib-input-text: #fff;
+  --bib-btn-secondary-bg: rgba(255, 255, 255, 0.15);
+  --bib-btn-secondary-hover: rgba(255, 255, 255, 0.25);
+  --bib-tab-inactive: rgba(255, 255, 255, 0.5);
+  --bib-tab-active-bg: rgba(255, 255, 255, 0.12);
+  --bib-placeholder: #888;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-/* Add this to your main CSS file */
-#root {
-  width: 100vw !important;
-  height: 100vh !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  max-width: none !important;
-  overflow-x: hidden;
+[data-theme="light"] {
+  --bib-bg: #f0f0f0;
+  --bib-bg-elevated: #ffffff;
+  --bib-bg-nav: #ffffff;
+  --bib-text: #1a1a1a;
+  --bib-text-muted: #5f6368;
+  --bib-text-title: #1a1a1a;
+  --bib-accent: #e50914;
+  --bib-accent-hover: #c40812;
+  --bib-border: #dadce0;
+  --bib-card-bg: #ffffff;
+  --bib-card-header: #f5f5f5;
+  --bib-overlay-backdrop: rgba(0, 0, 0, 0.5);
+  --bib-search-bg: rgba(0, 0, 0, 0.06);
+  --bib-search-focus: rgba(0, 0, 0, 0.1);
+  --bib-input-bg: #f8f9fa;
+  --bib-input-border: #dadce0;
+  --bib-input-text: #1a1a1a;
+  --bib-btn-secondary-bg: rgba(0, 0, 0, 0.06);
+  --bib-btn-secondary-hover: rgba(0, 0, 0, 0.12);
+  --bib-tab-inactive: #5f6368;
+  --bib-tab-active-bg: rgba(229, 9, 20, 0.12);
+  --bib-placeholder: #5f6368;
 }
 
 html, body {
@@ -38,63 +55,33 @@ html, body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bib-bg);
+  color: var(--bib-text);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+#root {
+  width: 100vw !important;
+  min-height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  max-width: none !important;
+  overflow-x: hidden;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
+a {
+  color: var(--bib-accent);
+  text-decoration: none;
 }
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-/* Netflix-style dark theme - override light mode */
-:root {
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #141414;
-}
-
 a:hover {
-  color: #e50914; /* Netflix red */
+  color: var(--bib-accent-hover);
 }
 
-button {
-  background-color: #e50914;
-  color: white;
-}
-
-button:hover {
-  background-color: #f40612;
-}
-
-.blur-sm {
-  filter: blur(4px) grayscale(30%);
-  opacity: 0.5;
+/* Blur when search is expanded */
+.bib-blurred {
+  filter: blur(6px);
   pointer-events: none;
+  user-select: none;
+  transition: filter 0.3s ease;
 }
-
-@media (max-width: 767px) {
-  .card {
-    max-width: 99vw !important;
-  }
-  .col-md-6 {
-    max-width: 100% !important;
-  }
-}
-
