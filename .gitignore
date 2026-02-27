@@ -66,3 +66,4 @@ frontend/bibliophile-ai-frontend/.env
 
 feast_feature_store/.venv
 
+CLAUDE.md
