@@ -113,75 +113,8 @@ Modern recommender systems research emphasizes that accuracy alone is insufficie
 ## 🏗️ System Architecture
 
 ### High-Level Architecture Diagram
+![BibliophileAI_Architecture](https://github.com/user-attachments/assets/17b1ae43-32f6-4f1e-aba8-8bfa304c6d93)
 
-```mermaid
-graph TB
-    subgraph "Frontend Layer"
-        UI[React Frontend]
-    end
-    
-    subgraph "API Gateway"
-        API[FastAPI Services]
-    end
-    
-    subgraph "Microservices"
-        US[User Service<br/>Auth & Profiles]
-        RS[Recommendation Service<br/>ML Inference]
-        DS[Data Ingestion Service<br/>Event Streaming]
-        FS[Feature Engineering<br/>Feature Store]
-        TS[Training Service<br/>Model Training]
-    end
-    
-    subgraph "Message Queue"
-        KF[Apache Kafka<br/>Event Streaming]
-    end
-    
-    subgraph "Data Layer"
-        PG[(PostgreSQL<br/>Supabase)]
-        MG[(MongoDB<br/>Event Logs)]
-        N4J[(Neo4j<br/>Social Graph)]
-        RD[(Redis<br/>Cache & Counters)]
-        PC[(Pinecone<br/>Vector DB)]
-        S3[(AWS S3<br/>Models & Data)]
-    end
-    
-    subgraph "ML Pipeline"
-        AF[Apache Airflow<br/>Orchestration]
-        SP[Ray<br/>Processing]
-    end
-    
-    UI --> API
-    API --> US
-    API --> RS
-    API --> DS
-    
-    DS --> KF
-    KF --> MG
-    KF --> RD
-    
-    US --> PG
-    RS --> PG
-    RS --> MG
-    RS --> N4J
-    RS --> RD
-    RS --> PC
-    
-    FS --> N4J
-    FS --> RD
-    FS --> S3
-    
-    TS --> AF
-    AF --> SP
-    SP --> MG
-    SP --> S3
-    TS --> S3
-    
-    style UI fill:#61DAFB
-    style RS fill:#EE4C2C
-    style KF fill:#231F20,color:#fff
-    style N4J fill:#008CC1
-    style PC fill:#5A67D8
-```
 
 ### Architecture Principles
 
