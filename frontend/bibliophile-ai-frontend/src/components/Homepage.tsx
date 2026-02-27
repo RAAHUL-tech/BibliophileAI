@@ -4,6 +4,7 @@ import Profile from "./Profile"
 import UpdateGenrePreferences from "./UpdateGenrePreferences"
 import UpdateAuthorPreferences from "./UpdateAuthorPreferences"
 import BookOverlay from "./BookOverlay"
+import SearchOverlay from "./SearchOverlay"
 import { useTheme } from "../context/ThemeContext"
 import { FaUser, FaHeart, FaSignOutAlt, FaUserPlus, FaChevronLeft, FaChevronRight, FaSearch, FaSun, FaMoon, FaTimes } from "react-icons/fa"
 import "./NetflixStyles.css"
@@ -100,6 +101,10 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
   const [selectedBook, setSelectedBook] = useState<BookRecommendation | null>(null)
   const [searchExpanded, setSearchExpanded] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<BookRecommendation[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [searchOverlayOpen, setSearchOverlayOpen] = useState(false)
 
   // Follower suggestions state
   const [followerSuggestions, setFollowerSuggestions] = useState<UserSuggestion[]>([])
@@ -122,6 +127,36 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
       }))
       .filter((cat) => cat.books.length > 0)
   }, [recommendationCategories, searchQuery])
+
+  const handleSearchSubmit = async () => {
+    const query = searchQuery.trim()
+    if (!query) return
+    setSearchLoading(true)
+    setSearchError(null)
+    try {
+      const res = await fetch("http://localhost:8080/api/v1/search/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ query }),
+      })
+      if (!res.ok) {
+        throw new Error("Search request failed")
+      }
+      const data = await res.json()
+      setSearchResults(data.results || [])
+      setSearchOverlayOpen(true)
+    } catch (err) {
+      console.error("Search error", err)
+      setSearchError("Failed to search books. Please try again.")
+      setSearchResults([])
+      setSearchOverlayOpen(true)
+    } finally {
+      setSearchLoading(false)
+    }
+  }
 
   // Fetch recommendations on first load
   useEffect(() => {
@@ -316,6 +351,12 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
                 placeholder="Search titles, authors..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    void handleSearchSubmit()
+                  }
+                }}
                 onBlur={() => { if (!searchQuery.trim()) setSearchExpanded(false); }}
                 autoFocus
                 aria-label="Search books"
@@ -512,6 +553,21 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
           book={selectedBook}
           token={token}
           onClose={() => setSelectedBook(null)}
+        />
+      )}
+      {searchOverlayOpen && (
+        <SearchOverlay
+          results={searchResults}
+          loading={searchLoading}
+          error={searchError}
+          onClose={() => {
+            setSearchOverlayOpen(false)
+            setSearchError(null)
+          }}
+          onBookClick={(book) => {
+            setSelectedBook(book)
+            setSearchOverlayOpen(false)
+          }}
         />
       )}
     </>
