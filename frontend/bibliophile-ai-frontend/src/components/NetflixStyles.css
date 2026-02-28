@@ -1,61 +1,84 @@
-/* Netflix-style CSS for BibliophileAI - theme-aware, 5 visible per row, fade edges */
+/* Netflix-style CSS for BibliophileAI — theme-aware, 5 visible per row, fade edges */
 
+/* ─── Container ─── */
 .netflix-container {
   padding: 0;
   background-color: var(--bib-bg);
   min-height: 100vh;
   color: var(--bib-text);
-  transition: background-color 0.3s ease;
+  transition: background-color 0.35s ease;
 }
 
+/* ─── Row ─── */
 .netflix-row {
   margin-bottom: 3rem;
   padding: 0 4%;
-  animation: netflix-row-enter 0.5s ease-out backwards;
+  animation: netflix-row-enter 0.5s ease-out both;
 }
 
 .netflix-row:nth-child(1) { animation-delay: 0.05s; }
-.netflix-row:nth-child(2) { animation-delay: 0.1s; }
-.netflix-row:nth-child(3) { animation-delay: 0.15s; }
-.netflix-row:nth-child(4) { animation-delay: 0.2s; }
-.netflix-row:nth-child(5) { animation-delay: 0.25s; }
-.netflix-row:nth-child(6) { animation-delay: 0.3s; }
-.netflix-row:nth-child(7) { animation-delay: 0.35s; }
-.netflix-row:nth-child(8) { animation-delay: 0.4s; }
+.netflix-row:nth-child(2) { animation-delay: 0.12s; }
+.netflix-row:nth-child(3) { animation-delay: 0.19s; }
+.netflix-row:nth-child(4) { animation-delay: 0.26s; }
+.netflix-row:nth-child(5) { animation-delay: 0.33s; }
+.netflix-row:nth-child(6) { animation-delay: 0.40s; }
+.netflix-row:nth-child(7) { animation-delay: 0.47s; }
+.netflix-row:nth-child(8) { animation-delay: 0.54s; }
 
 @keyframes netflix-row-enter {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ─── Row Title ─── */
 .netflix-row-title {
-  font-size: 1.4vw;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
+  font-size: clamp(1rem, 1.4vw, 1.35rem);
+  font-weight: 700;
+  margin-bottom: 0.4rem;
   color: var(--bib-text-title);
   padding-left: 0;
   transition: color 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: default;
+  letter-spacing: -0.01em;
+}
+
+/* Arrow reveal on title hover */
+.netflix-row-title::after {
+  content: "›";
+  font-size: 1.2em;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  color: var(--bib-accent);
+  display: inline-block;
+}
+
+.netflix-row:hover .netflix-row-title::after {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Title hover glow */
+.netflix-row:hover .netflix-row-title {
+  color: var(--bib-accent);
 }
 
 .netflix-row-description {
-  font-size: 0.9vw;
+  font-size: clamp(0.8rem, 0.9vw, 0.95rem);
   color: var(--bib-text-muted);
-  margin-bottom: 1rem;
+  margin-bottom: 0.9rem;
   padding-left: 0;
   transition: color 0.3s ease;
 }
 
+/* ─── Slider Wrap ─── */
 .netflix-row-content {
   position: relative;
 }
 
-/* Show at most 5 items in view; rest via scroll. Item width ~18.5% of row so 5 fit with gaps */
 .netflix-slider-wrap {
   position: relative;
   width: 100%;
@@ -74,54 +97,64 @@
   -ms-overflow-style: none;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
+  cursor: grab;
+}
+
+.netflix-slider:active {
+  cursor: grabbing;
 }
 
 .netflix-slider::-webkit-scrollbar {
   display: none;
 }
 
-/* Each item: snap, fixed width so ~5 visible in typical viewport */
+/* ─── Book Items ─── */
 .netflix-item {
   flex: 0 0 auto;
   width: clamp(140px, 18vw, 200px);
   height: clamp(200px, 27vw, 300px);
   position: relative;
   cursor: pointer;
-  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), z-index 0.3s ease, box-shadow 0.35s ease, opacity 0.25s ease;
-  border-radius: 6px;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.35s ease,
+              opacity 0.25s ease;
+  border-radius: 8px;
   overflow: hidden;
   scroll-snap-align: start;
-  scroll-snap-stop: normal;
   will-change: transform;
+  backface-visibility: hidden;
 }
 
 .netflix-item:hover {
-  transform: scale(1.1);
+  transform: scale(1.08) translateY(-4px);
   z-index: 10;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 0 0 2px rgba(229, 9, 20, 0.4);
 }
 
-/* Smoother slide feel: items ease when row is scrolled (visual feedback) */
+/* Active drag feel */
 .netflix-slider:active .netflix-item {
-  transition-duration: 0.2s;
+  transition-duration: 0.15s;
 }
 
+/* ─── Item Image ─── */
 .netflix-item-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 6px;
-  transition: opacity 0.25s ease;
+  border-radius: 8px;
+  transition: opacity 0.25s ease, transform 0.4s ease;
 }
 
 .netflix-item:hover .netflix-item-image {
-  opacity: 0.95;
+  opacity: 0.9;
+  transform: scale(1.04);
 }
 
+/* ─── Item Placeholder (no thumbnail) ─── */
 .netflix-item-placeholder {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -129,46 +162,61 @@
   text-align: center;
   color: white;
   font-weight: 600;
-  font-size: 0.9rem;
-  border-radius: 6px;
+  font-size: 0.85rem;
+  border-radius: 8px;
+  transition: filter 0.3s ease;
 }
 
+.netflix-item:hover .netflix-item-placeholder {
+  filter: brightness(1.1);
+}
+
+/* ─── Hover Overlay (title/author) ─── */
 .netflix-item-overlay {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 0%, transparent 70%);
-  padding: 1rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.5) 60%, transparent 100%);
+  padding: 1.25rem 0.75rem 0.75rem;
   opacity: 0;
   transition: opacity 0.25s ease;
-  border-radius: 0 0 6px 6px;
+  border-radius: 0 0 8px 8px;
 }
 
 .netflix-item:hover .netflix-item-overlay {
   opacity: 1;
 }
 
+/* On touch devices — always show title */
+@media (hover: none) {
+  .netflix-item-overlay {
+    opacity: 1;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0.35) 60%, transparent 100%);
+  }
+}
+
 .netflix-item-overlay h4 {
-  font-size: 0.9rem;
-  font-weight: 600;
-  margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin: 0 0 0.3rem 0;
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
 .netflix-item-overlay p {
-  font-size: 0.75rem;
-  color: #b3b3b3;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.8);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Left/right fade masks - old books “fade away” at edges */
+/* ─── Edge Fade Masks ─── */
 .netflix-row-content::before,
 .netflix-row-content::after {
   content: "";
@@ -183,32 +231,38 @@
 
 .netflix-row-content::before {
   left: 0;
-  background: linear-gradient(to right, var(--bib-bg) 0%, transparent 100%);
+  background: linear-gradient(to right, var(--bib-row-fade) 0%, transparent 100%);
 }
 
 .netflix-row-content::after {
   right: 0;
-  background: linear-gradient(to left, var(--bib-bg) 0%, transparent 100%);
+  background: linear-gradient(to left, var(--bib-row-fade) 0%, transparent 100%);
 }
 
-[data-theme="light"] .netflix-row-content::before,
-[data-theme="light"] .netflix-row-content::after {
-  background: linear-gradient(to right, var(--bib-bg) 0%, transparent 100%);
+/* Inside overlay — use elevated bg */
+.bib-overlay-panel .netflix-row-content::before {
+  background: linear-gradient(to right, var(--bib-bg-elevated) 0%, transparent 100%);
 }
 
-[data-theme="light"] .netflix-row-content::after {
-  background: linear-gradient(to left, var(--bib-bg) 0%, transparent 100%);
+.bib-overlay-panel .netflix-row-content::after {
+  background: linear-gradient(to left, var(--bib-bg-elevated) 0%, transparent 100%);
 }
 
-/* Scroll buttons */
+.bib-overlay-panel .netflix-container {
+  background: transparent;
+  min-height: unset;
+}
+
+/* ─── Scroll Buttons ─── */
 .netflix-scroll-button {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(20, 20, 20, 0.85);
-  border: none;
+  background: rgba(20, 20, 20, 0.88);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: #fff;
-  font-size: 2rem;
+  font-size: 1.75rem;
   width: 56px;
   min-height: clamp(200px, 27vw, 300px);
   cursor: pointer;
@@ -216,43 +270,69 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s ease, color 0.2s ease;
-  border-radius: 0 6px 6px 0;
-  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.5);
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 0 8px 8px 0;
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.5);
   -webkit-tap-highlight-color: transparent;
 }
 
 [data-theme="light"] .netflix-scroll-button {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
   color: #333;
-  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.12);
 }
 
 .netflix-scroll-button:hover {
+  background: rgba(229, 9, 20, 0.92);
+  color: #fff;
+  box-shadow: 0 0 20px rgba(229, 9, 20, 0.4);
+  transform: translateY(-50%) scaleX(1.05);
+}
+
+[data-theme="light"] .netflix-scroll-button:hover {
   background: rgba(229, 9, 20, 0.9);
   color: #fff;
 }
 
 .netflix-scroll-button.left {
   left: 0;
-  border-radius: 6px 0 0 6px;
-  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.5);
+  border-radius: 8px 0 0 8px;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.5);
 }
 
 [data-theme="light"] .netflix-scroll-button.left {
-  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.15);
-}
-
-.netflix-scroll-button.right {
-  right: 0;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.12);
 }
 
 .netflix-scroll-button:focus {
-  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline: 2px solid var(--bib-accent);
   outline-offset: 2px;
 }
 
-/* Loading state */
+/* ─── Skeleton Loading Items ─── */
+.netflix-skeleton-item {
+  flex: 0 0 auto;
+  width: clamp(140px, 18vw, 200px);
+  height: clamp(200px, 27vw, 300px);
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--bib-skeleton-base) 25%,
+    var(--bib-skeleton-highlight) 50%,
+    var(--bib-skeleton-base) 75%
+  );
+  background-size: 400px 100%;
+  animation: bib-skeleton-shimmer 1.4s ease-in-out infinite;
+  scroll-snap-align: start;
+}
+
+@keyframes bib-skeleton-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+/* ─── Loading State ─── */
 .netflix-loading-state {
   display: flex;
   flex-direction: column;
@@ -265,35 +345,59 @@
 
 .netflix-loading-state .netflix-loading-text {
   color: var(--bib-text-muted);
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 500;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
+  animation: bib-fade-in-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes bib-fade-in-pulse {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1; }
 }
 
 .netflix-loading-state .netflix-loading-spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid rgba(229, 9, 20, 0.3);
+  width: 52px;
+  height: 52px;
+  border: 4px solid rgba(229, 9, 20, 0.2);
   border-top-color: var(--bib-accent);
   border-radius: 50%;
-  animation: netflix-spin 0.9s linear infinite;
+  animation: netflix-spin 0.85s linear infinite;
 }
 
 @keyframes netflix-spin {
   to { transform: rotate(360deg); }
 }
 
-/* Navbar - theme-aware (dark and light) */
+/* ─── Navbar ─── */
 .bib-nav {
   background: var(--bib-bg-nav) !important;
-  transition: background 0.3s ease;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--bib-border);
+  transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+}
+
+.bib-nav.bib-nav-scrolled {
+  background: var(--bib-navbar-scrolled) !important;
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .bib-nav.bib-nav-scrolled {
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.12);
 }
 
 .bib-nav .navbar-brand,
 .bib-nav.navbar-dark .navbar-brand {
   color: var(--bib-text-title) !important;
-  font-weight: 700;
-  font-size: 1.5rem;
+  font-weight: 800;
+  font-size: 1.45rem;
+  letter-spacing: -0.02em;
+  transition: color 0.2s ease;
+}
+
+.bib-nav .navbar-brand:hover {
+  color: var(--bib-accent) !important;
 }
 
 .bib-nav .nav-link,
@@ -307,6 +411,7 @@
   background: var(--bib-btn-secondary-bg) !important;
   border-color: var(--bib-border) !important;
   color: var(--bib-text-title) !important;
+  transition: background 0.2s ease, transform 0.15s ease !important;
 }
 
 .bib-nav .dropdown-toggle:hover,
@@ -314,6 +419,7 @@
   background: var(--bib-btn-secondary-hover) !important;
   border-color: var(--bib-border) !important;
   color: var(--bib-text-title) !important;
+  transform: translateY(-1px);
 }
 
 .bib-nav .navbar-toggler {
@@ -334,6 +440,7 @@
   color: var(--bib-text-title) !important;
 }
 
+/* Search trigger */
 .bib-search-trigger {
   display: flex;
   align-items: center;
@@ -343,17 +450,19 @@
   border: none;
   background: transparent;
   color: var(--bib-text-title);
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   cursor: pointer;
   border-radius: 50%;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
 .bib-search-trigger:hover {
   background: var(--bib-search-bg);
-  color: var(--bib-text-title);
+  color: var(--bib-accent);
+  transform: scale(1.1);
 }
 
+/* Search expanded */
 .bib-search-expanded {
   display: flex;
   align-items: center;
@@ -364,16 +473,8 @@
 }
 
 @keyframes bib-search-expand {
-  from {
-    opacity: 0;
-    max-width: 0;
-    margin-left: 0;
-  }
-  to {
-    opacity: 1;
-    max-width: 400px;
-    margin-left: 1rem;
-  }
+  from { opacity: 0; max-width: 0; margin-left: 0; }
+  to   { opacity: 1; max-width: 400px; margin-left: 1rem; }
 }
 
 .bib-search-expanded input {
@@ -381,11 +482,11 @@
   padding: 0.5rem 1rem;
   font-size: 1rem;
   border: 1px solid var(--bib-border);
-  border-radius: 4px;
+  border-radius: 20px;
   background: var(--bib-search-bg);
   color: var(--bib-text);
   outline: none;
-  transition: border-color 0.2s ease, background 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .bib-search-expanded input::placeholder {
@@ -395,6 +496,7 @@
 .bib-search-expanded input:focus {
   border-color: var(--bib-accent);
   background: var(--bib-search-focus);
+  box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.15);
 }
 
 /* Theme toggle */
@@ -411,44 +513,97 @@
   cursor: pointer;
   border-radius: 50%;
   margin-right: 0.5rem;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, transform 0.3s ease, color 0.2s ease;
 }
 
 .bib-theme-toggle:hover {
   background: var(--bib-search-bg);
+  transform: rotate(20deg) scale(1.1);
+  color: var(--bib-accent);
 }
 
-/* Nav dropdown theme-aware */
+/* Nav dropdown */
 .bib-nav .dropdown-menu {
   background: var(--bib-bg-elevated);
   border-color: var(--bib-border);
+  box-shadow: var(--bib-shadow-md);
+  border-radius: 10px;
+  padding: 0.4rem;
+  animation: bib-scale-in 0.2s ease-out;
+  transform-origin: top right;
+}
+
+@keyframes bib-scale-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 .bib-nav .dropdown-item {
   color: var(--bib-text);
+  border-radius: 6px;
+  transition: background 0.15s ease, padding-left 0.15s ease;
+  padding: 0.5rem 0.9rem;
 }
 
 .bib-nav .dropdown-item:hover {
   background: var(--bib-search-bg);
   color: var(--bib-text);
+  padding-left: 1.1rem;
 }
 
 .bib-nav .dropdown-item.text-danger:hover {
-  background: rgba(229, 9, 20, 0.15);
+  background: rgba(229, 9, 20, 0.12);
+  color: var(--bib-accent) !important;
 }
 
-/* Responsive */
+/* ─── Sidebar / Suggestions ─── */
+.bib-suggestion-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--bib-border);
+  border-radius: 10px;
+  background: var(--bib-card-bg);
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  animation: bib-fade-up 0.4s ease-out both;
+}
+
+.bib-suggestion-card:hover {
+  background: var(--bib-bg-elevated);
+  transform: translateX(3px);
+  box-shadow: var(--bib-shadow-sm);
+}
+
+.bib-suggestion-card .username {
+  font-weight: 600;
+  color: var(--bib-text);
+  font-size: 0.9rem;
+}
+
+/* Stagger delays for suggestion cards */
+.bib-suggestion-card:nth-child(1) { animation-delay: 0.05s; }
+.bib-suggestion-card:nth-child(2) { animation-delay: 0.10s; }
+.bib-suggestion-card:nth-child(3) { animation-delay: 0.15s; }
+.bib-suggestion-card:nth-child(4) { animation-delay: 0.20s; }
+.bib-suggestion-card:nth-child(5) { animation-delay: 0.25s; }
+.bib-suggestion-card:nth-child(6) { animation-delay: 0.30s; }
+.bib-suggestion-card:nth-child(7) { animation-delay: 0.35s; }
+.bib-suggestion-card:nth-child(8) { animation-delay: 0.40s; }
+
+/* ─── Responsive ─── */
 @media (max-width: 768px) {
   .netflix-row {
     padding: 0 2%;
+    margin-bottom: 2rem;
   }
 
   .netflix-row-title {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
   }
 
   .netflix-row-description {
-    font-size: 0.85rem;
+    font-size: 0.82rem;
   }
 
   .netflix-item {
@@ -464,19 +619,24 @@
   .netflix-scroll-button {
     width: 44px;
     min-height: 190px;
-    font-size: 1.5rem;
+    font-size: 1.4rem;
   }
 
   .netflix-row-content::before,
   .netflix-row-content::after {
-    width: 40px;
+    width: 44px;
+  }
+
+  .netflix-skeleton-item {
+    width: 130px;
+    height: 190px;
   }
 }
 
 @media (max-width: 480px) {
   .netflix-item {
-    width: 110px;
-    height: 165px;
+    width: 115px;
+    height: 170px;
   }
 
   .netflix-row-title {
@@ -486,11 +646,17 @@
   .netflix-slider {
     padding-left: 36px;
     padding-right: 36px;
+    gap: 0.5rem;
   }
 
   .netflix-scroll-button {
     width: 36px;
-    min-height: 165px;
-    font-size: 1.25rem;
+    min-height: 170px;
+    font-size: 1.2rem;
+  }
+
+  .netflix-skeleton-item {
+    width: 115px;
+    height: 170px;
   }
 }

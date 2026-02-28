@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import './SharedStyles.css'
 
 interface RegisterProps {
   onRegisterSuccess: (jwtToken: string, sessionId: string) => void;
@@ -10,41 +11,40 @@ export default function Register({ onRegisterSuccess }: RegisterProps) {
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState<string | null>(null)
 
- const handleRegister = async (e: FormEvent) => {
-  e.preventDefault();
-  setMessage(null);
-  try {
-    const res = await fetch('http://localhost:8080/api/v1/user/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email, password }),
-    });
+  const handleRegister = async (e: FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+    try {
+      const res = await fetch('http://localhost:8080/api/v1/user/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password }),
+      });
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data.access_token && data.session_id) {
-        // Pass both to parent
-        onRegisterSuccess(data.access_token, data.session_id);
-        setMessage(null);
-        setUsername('');
-        setEmail('');
-        setPassword('');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.access_token && data.session_id) {
+          onRegisterSuccess(data.access_token, data.session_id);
+          setMessage(null);
+          setUsername('');
+          setEmail('');
+          setPassword('');
+        } else {
+          setMessage('Registration successful, but missing token/session.');
+        }
       } else {
-        setMessage('Registration successful, but missing token/session.');
+        const error = await res.json();
+        setMessage(`Error: ${error.detail || 'Failed to register'}`);
       }
-    } else {
-      const error = await res.json();
-      setMessage(`Error: ${error.detail || 'Failed to register'}`);
+    } catch {
+      setMessage('Network error or server not reachable.');
     }
-  } catch {
-    setMessage('Network error or server not reachable.');
-  }
-};
+  };
 
   return (
     <form className="mb-3 animate__animated animate__fadeIn" onSubmit={handleRegister}>
       <input
-        className="form-control mb-2"
+        className="bib-input form-control mb-2"
         type="text"
         placeholder="Username"
         value={username}
@@ -52,7 +52,7 @@ export default function Register({ onRegisterSuccess }: RegisterProps) {
         required
       />
       <input
-        className="form-control mb-2"
+        className="bib-input form-control mb-2"
         type="email"
         placeholder="Email"
         value={email}
@@ -60,18 +60,28 @@ export default function Register({ onRegisterSuccess }: RegisterProps) {
         required
       />
       <input
-        className="form-control mb-2"
+        className="bib-input form-control mb-2"
         type="password"
         placeholder="Password"
         value={password}
         onChange={e => setPassword(e.target.value)}
         required
       />
-      <button type="submit" className="btn btn-primary w-100">
+      <button
+        type="submit"
+        className="bib-btn-primary w-100"
+        style={{ borderRadius: '8px', padding: '0.6rem' }}
+      >
         Register
       </button>
       {message && (
-        <p className={`mt-2 fw-semibold text-center ${message.startsWith('Error') ? 'text-danger' : 'text-success'}`}>
+        <p
+          className={`mt-2 fw-semibold text-center small`}
+          style={{
+            color: message.startsWith('Error') ? 'var(--bib-accent)' : '#28a745',
+            animation: 'bib-fade-up 0.3s ease-out'
+          }}
+        >
           {message}
         </p>
       )}

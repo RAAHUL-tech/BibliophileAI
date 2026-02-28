@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef, useMemo, type FC } from "react"
-import { Dropdown, Navbar, Container, Nav, Spinner, Card, Button } from "react-bootstrap"
+import { useState, useEffect, useRef, useMemo, useCallback, type FC } from "react"
+import { Dropdown, Navbar, Container, Nav } from "react-bootstrap"
 import Profile from "./Profile"
 import UpdateGenrePreferences from "./UpdateGenrePreferences"
 import UpdateAuthorPreferences from "./UpdateAuthorPreferences"
 import BookOverlay from "./BookOverlay"
 import SearchOverlay from "./SearchOverlay"
 import { useTheme } from "../context/ThemeContext"
-import { FaUser, FaHeart, FaSignOutAlt, FaUserPlus, FaChevronLeft, FaChevronRight, FaSearch, FaSun, FaMoon, FaTimes } from "react-icons/fa"
+import { FaUser, FaHeart, FaSignOutAlt, FaUserPlus, FaChevronLeft, FaChevronRight, FaSearch, FaSun, FaMoon, FaTimes, FaSpinner } from "react-icons/fa"
 import "./NetflixStyles.css"
 import "./SharedStyles.css"
 
@@ -105,11 +105,19 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false)
+  const [navScrolled, setNavScrolled] = useState(false)
 
   // Follower suggestions state
   const [followerSuggestions, setFollowerSuggestions] = useState<UserSuggestion[]>([])
   const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(true)
   const [followingInProgress, setFollowingInProgress] = useState<Set<string>>(new Set())
+
+  // Navbar scroll effect
+  useEffect(() => {
+    const onScroll = () => setNavScrolled(window.scrollY > 20)
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
 
   // Client-side search filter (no backend calls)
   const filteredCategories = useMemo(() => {
@@ -165,7 +173,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
     const fetchRecs = async () => {
       try {
         const res = await fetch("http://localhost:8080/api/v1/recommend/combined", {
-          headers: { 
+          headers: {
             Authorization: `Bearer ${token}` ,
             'Content-Type': 'application/json',
             'User-Agent': navigator.userAgent
@@ -260,7 +268,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
       })
-      
+
       if (res.ok) {
         // Remove from suggestions after successful follow
         setFollowerSuggestions(prev => prev.filter(u => u.id !== userId))
@@ -290,7 +298,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           genres,
           authors: preferences?.authors || []
         }),
@@ -320,9 +328,9 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           genres: preferences?.genres || [],
-          authors 
+          authors
         }),
       })
       if (res.ok) {
@@ -341,9 +349,15 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
 
   return (
     <>
-      <Navbar bg="dark" variant="dark" expand="lg" fixed="top" className="shadow-sm bib-nav">
+      <Navbar
+        bg={theme === "dark" ? "dark" : "light"}
+        variant={theme === "dark" ? "dark" : "light"}
+        expand="lg"
+        fixed="top"
+        className={`shadow-sm bib-nav${navScrolled ? " bib-nav-scrolled" : ""}`}
+      >
         <Container fluid className="d-flex align-items-center">
-          <Navbar.Brand href="#" className="me-3">BibliophileAI</Navbar.Brand>
+          <Navbar.Brand href="#" className="me-3">📚 BibliophileAI</Navbar.Brand>
           {searchExpanded && (
             <div className="bib-search-expanded">
               <input
@@ -395,9 +409,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
                   <FaHeart className="me-2" /> Author Preferences
                 </Dropdown.Item>
                 <Dropdown.Item
-                  onClick={() => {
-                    onLogout()
-                  }}
+                  onClick={() => { onLogout() }}
                   className="text-danger"
                 >
                   <FaSignOutAlt className="me-2" /> Logout
@@ -410,7 +422,13 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
 
       <div
         className={`container-fluid ${searchExpanded ? "bib-blurred" : ""}`}
-        style={{ marginTop: "75px", backgroundColor: "var(--bib-bg)", minHeight: "100vh", padding: 0, transition: "filter 0.3s ease" }}
+        style={{
+          marginTop: "75px",
+          backgroundColor: "var(--bib-bg)",
+          minHeight: "100vh",
+          padding: 0,
+          transition: "filter 0.3s ease, background-color 0.35s ease"
+        }}
       >
         <div className="row" style={{ margin: 0 }}>
           {/* Main Content Area */}
@@ -418,7 +436,13 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
             {error && (view === "preferences" || view === "author_preferences") && (
               <div className="bib-alert-danger m-3 d-flex align-items-center justify-content-between">
                 <span>{error}</span>
-                <button type="button" className="bib-btn-secondary" style={{ padding: "0.25rem 0.5rem", fontSize: "0.875rem" }} onClick={() => setError(null)} aria-label="Dismiss">
+                <button
+                  type="button"
+                  className="bib-btn-secondary"
+                  style={{ padding: "0.25rem 0.5rem", fontSize: "0.875rem" }}
+                  onClick={() => setError(null)}
+                  aria-label="Dismiss"
+                >
                   <FaTimes />
                 </button>
               </div>
@@ -499,50 +523,136 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
             )}
           </div>
 
-          {/* Right Sidebar - Follower Suggestions */}
+          {/* Right Sidebar — Follower Suggestions */}
           <div className="col-lg-3 col-md-4" style={{ padding: "1rem" }}>
             <div className="sticky-top" style={{ top: "85px" }}>
-              <Card className="shadow-sm" style={{ backgroundColor: "var(--bib-bg-elevated)", borderColor: "var(--bib-border)" }}>
-                <Card.Header style={{ backgroundColor: "var(--bib-card-bg)", borderColor: "var(--bib-border)", color: "var(--bib-text)" }}>
-                  <h5 className="mb-0">👥 Suggested Users</h5>
-                </Card.Header>
-                <Card.Body style={{ maxHeight: "70vh", overflowY: "auto", backgroundColor: "var(--bib-bg-elevated)", color: "var(--bib-text)" }}>
+              <div
+                className="rounded-3 overflow-hidden"
+                style={{
+                  background: "var(--bib-bg-elevated)",
+                  border: "1px solid var(--bib-border)",
+                  boxShadow: "var(--bib-shadow-md)",
+                  transition: "background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease"
+                }}
+              >
+                {/* Sidebar header */}
+                <div
+                  style={{
+                    background: "var(--bib-card-header)",
+                    borderBottom: "1px solid var(--bib-border)",
+                    padding: "0.85rem 1rem",
+                    transition: "background 0.35s ease"
+                  }}
+                >
+                  <h5
+                    className="mb-0"
+                    style={{
+                      color: "var(--bib-text-title)",
+                      fontWeight: 700,
+                      fontSize: "1rem",
+                      letterSpacing: "-0.01em"
+                    }}
+                  >
+                    👥 Suggested Users
+                  </h5>
+                </div>
+
+                {/* Sidebar body */}
+                <div
+                  style={{
+                    maxHeight: "70vh",
+                    overflowY: "auto",
+                    padding: "0.75rem",
+                    background: "var(--bib-bg-elevated)",
+                    color: "var(--bib-text)",
+                    transition: "background 0.35s ease"
+                  }}
+                >
                   {loadingSuggestions ? (
-                    <div className="text-center py-3">
-                      <Spinner animation="border" size="sm" />
-                      <p className="mt-2 text-muted small">Loading...</p>
+                    <div className="text-center py-4">
+                      <FaSpinner
+                        style={{
+                          fontSize: "1.5rem",
+                          animation: "spin 1s linear infinite",
+                          color: "var(--bib-accent)"
+                        }}
+                      />
+                      <p className="mt-2 small mb-0" style={{ color: "var(--bib-text-muted)" }}>
+                        Loading...
+                      </p>
                     </div>
                   ) : followerSuggestions.length === 0 ? (
-                    <p className="text-muted text-center">No suggestions available</p>
+                    <p
+                      className="text-center py-3 mb-0 small"
+                      style={{ color: "var(--bib-text-muted)" }}
+                    >
+                      No suggestions available
+                    </p>
                   ) : (
-                    <div className="d-flex flex-column gap-3">
-                      {followerSuggestions.map((user) => (
+                    <div className="d-flex flex-column gap-2">
+                      {followerSuggestions.map((user, idx) => (
                         <div
                           key={user.id}
-                          className="d-flex justify-content-between align-items-center p-2 border rounded"
+                          className="bib-suggestion-card"
+                          style={{ animationDelay: `${idx * 0.06}s` }}
                         >
-                          <span className="fw-medium">{user.username}</span>
-                          <Button
-                            size="sm"
-                            variant="outline-primary"
+                          <div className="d-flex align-items-center gap-2">
+                            <div
+                              style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: "50%",
+                                background: "linear-gradient(135deg, #667eea, #764ba2)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: "0.85rem",
+                                fontWeight: 700,
+                                color: "white",
+                                flexShrink: 0,
+                                textTransform: "uppercase"
+                              }}
+                            >
+                              {user.username.charAt(0).toUpperCase()}
+                            </div>
+                            <span
+                              style={{
+                                color: "var(--bib-text)",
+                                fontWeight: 600,
+                                fontSize: "0.88rem"
+                              }}
+                            >
+                              {user.username}
+                            </span>
+                          </div>
+                          <button
+                            className="bib-btn-primary"
+                            style={{
+                              padding: "0.3rem 0.75rem",
+                              fontSize: "0.8rem",
+                              borderRadius: "20px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "0.3rem"
+                            }}
                             onClick={() => handleFollowUser(user.id)}
                             disabled={followingInProgress.has(user.id)}
                           >
                             {followingInProgress.has(user.id) ? (
-                              <Spinner animation="border" size="sm" />
+                              <FaSpinner style={{ animation: "spin 1s linear infinite" }} />
                             ) : (
                               <>
-                                <FaUserPlus className="me-1" />
+                                <FaUserPlus style={{ fontSize: "0.75rem" }} />
                                 Follow
                               </>
                             )}
-                          </Button>
+                          </button>
                         </div>
                       ))}
                     </div>
                   )}
-                </Card.Body>
-              </Card>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -574,7 +684,7 @@ const Homepage: FC<HomepageProps> = ({ token, onLogout }) => {
   )
 }
 
-// Netflix-style Row Component with horizontal scrolling
+// Netflix-style Row Component with horizontal scrolling + touch swipe support
 interface NetflixRowProps {
   category: RecommendationCategory
   displayTitle?: string
@@ -583,44 +693,73 @@ interface NetflixRowProps {
 
 const NetflixRow: FC<NetflixRowProps> = ({ category, displayTitle, onBookClick }) => {
   const sliderRef = useRef<HTMLDivElement>(null)
+  const touchStartX = useRef(0)
+  const touchEndX = useRef(0)
   const title = displayTitle ?? category.category
 
-  const scrollLeft = () => {
-    if (sliderRef.current) {
-      sliderRef.current.scrollBy({ left: -600, behavior: 'smooth' })
-    }
-  }
+  const scrollLeft = useCallback(() => {
+    sliderRef.current?.scrollBy({ left: -600, behavior: "smooth" })
+  }, [])
 
-  const scrollRight = () => {
-    if (sliderRef.current) {
-      sliderRef.current.scrollBy({ left: 600, behavior: 'smooth' })
+  const scrollRight = useCallback(() => {
+    sliderRef.current?.scrollBy({ left: 600, behavior: "smooth" })
+  }, [])
+
+  // Touch swipe: trigger scroll after swipe of > 60px
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    touchEndX.current = e.touches[0].clientX
+  }, [])
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX
+  }, [])
+
+  const onTouchEnd = useCallback(() => {
+    const delta = touchStartX.current - touchEndX.current
+    if (Math.abs(delta) > 60) {
+      if (delta > 0) scrollRight()
+      else scrollLeft()
     }
-  }
+  }, [scrollLeft, scrollRight])
 
   return (
     <div className="netflix-row">
       <h3 className="netflix-row-title">{title}</h3>
-      <p className="netflix-row-description">{category.description}</p>
+      {category.description && (
+        <p className="netflix-row-description">{category.description}</p>
+      )}
       <div className="netflix-row-content" style={{ position: 'relative' }}>
-        <button 
+        <button
           className="netflix-scroll-button left"
           onClick={scrollLeft}
           aria-label="Scroll left"
         >
           <FaChevronLeft />
         </button>
-        <div className="netflix-slider" ref={sliderRef}>
+        <div
+          className="netflix-slider"
+          ref={sliderRef}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
           {category.books.map((book) => (
             <div
               key={book.id}
               className="netflix-item"
               onClick={() => onBookClick(book)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === "Enter" && onBookClick(book)}
+              aria-label={`Open ${book.title}`}
             >
               {book.thumbnail_url ? (
-                <img 
-                  src={book.thumbnail_url} 
+                <img
+                  src={book.thumbnail_url}
                   alt={book.title}
                   className="netflix-item-image"
+                  loading="lazy"
                 />
               ) : (
                 <div className="netflix-item-placeholder">
@@ -636,7 +775,7 @@ const NetflixRow: FC<NetflixRowProps> = ({ category, displayTitle, onBookClick }
             </div>
           ))}
         </div>
-        <button 
+        <button
           className="netflix-scroll-button right"
           onClick={scrollRight}
           aria-label="Scroll right"

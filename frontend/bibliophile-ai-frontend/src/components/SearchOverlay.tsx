@@ -1,6 +1,6 @@
 import { type FC, useRef } from "react"
 import { FaChevronLeft, FaChevronRight, FaTimes } from "react-icons/fa"
-import BookOverlay, { type BookRecommendation } from "./BookOverlay"
+import { type BookRecommendation } from "./BookOverlay"
 import "./BookOverlay.css"
 import "./NetflixStyles.css"
 

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import './SharedStyles.css'
 
 interface LoginProps {
   onLoginSuccess: (token: string, sessionId: string) => void
@@ -41,7 +42,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   return (
     <form className="mb-2 animate__animated animate__fadeIn" onSubmit={handleLogin}>
       <input
-        className="form-control mb-2"
+        className="bib-input form-control mb-2"
         type="text"
         placeholder="Username"
         value={username}
@@ -49,15 +50,24 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         required
       />
       <input
-        className="form-control mb-2"
+        className="bib-input form-control mb-2"
         type="password"
         placeholder="Password"
         value={password}
         onChange={e => setPassword(e.target.value)}
         required
       />
-      <button type="submit" className="btn btn-success w-100">Login</button>
-      {error && <p className="mt-2 text-danger fw-semibold text-center">{error}</p>}
+      <button type="submit" className="bib-btn-primary w-100" style={{ borderRadius: '8px', padding: '0.6rem' }}>
+        Login
+      </button>
+      {error && (
+        <p
+          className="mt-2 fw-semibold text-center small"
+          style={{ color: 'var(--bib-accent)', animation: 'bib-fade-up 0.3s ease-out' }}
+        >
+          {error}
+        </p>
+      )}
     </form>
   )
 }

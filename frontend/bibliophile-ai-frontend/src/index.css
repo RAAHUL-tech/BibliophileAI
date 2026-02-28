@@ -1,8 +1,9 @@
+/* ─── CSS Variables ─── */
 :root,
 [data-theme="dark"] {
   --bib-bg: #141414;
   --bib-bg-elevated: #1f1f1f;
-  --bib-bg-nav: #141414;
+  --bib-bg-nav: rgba(20, 20, 20, 0.92);
   --bib-text: rgba(255, 255, 255, 0.95);
   --bib-text-muted: #b3b3b3;
   --bib-text-title: #e5e5e5;
@@ -11,7 +12,7 @@
   --bib-border: #333;
   --bib-card-bg: #2d2d2d;
   --bib-card-header: #181818;
-  --bib-overlay-backdrop: rgba(0, 0, 0, 0.85);
+  --bib-overlay-backdrop: rgba(0, 0, 0, 0.88);
   --bib-search-bg: rgba(255, 255, 255, 0.1);
   --bib-search-focus: rgba(255, 255, 255, 0.2);
   --bib-input-bg: #333;
@@ -22,12 +23,20 @@
   --bib-tab-inactive: rgba(255, 255, 255, 0.5);
   --bib-tab-active-bg: rgba(255, 255, 255, 0.12);
   --bib-placeholder: #888;
+  --bib-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --bib-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --bib-shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.7);
+  --bib-skeleton-base: #2a2a2a;
+  --bib-skeleton-highlight: #3a3a3a;
+  --bib-glow-accent: 0 0 20px rgba(229, 9, 20, 0.35);
+  --bib-navbar-scrolled: rgba(10, 10, 10, 0.98);
+  --bib-row-fade: #141414;
 }
 
 [data-theme="light"] {
   --bib-bg: #f0f0f0;
   --bib-bg-elevated: #ffffff;
-  --bib-bg-nav: #ffffff;
+  --bib-bg-nav: rgba(255, 255, 255, 0.92);
   --bib-text: #1a1a1a;
   --bib-text-muted: #5f6368;
   --bib-text-title: #1a1a1a;
@@ -36,7 +45,7 @@
   --bib-border: #dadce0;
   --bib-card-bg: #ffffff;
   --bib-card-header: #f5f5f5;
-  --bib-overlay-backdrop: rgba(0, 0, 0, 0.5);
+  --bib-overlay-backdrop: rgba(0, 0, 0, 0.55);
   --bib-search-bg: rgba(0, 0, 0, 0.06);
   --bib-search-focus: rgba(0, 0, 0, 0.1);
   --bib-input-bg: #f8f9fa;
@@ -47,8 +56,17 @@
   --bib-tab-inactive: #5f6368;
   --bib-tab-active-bg: rgba(229, 9, 20, 0.12);
   --bib-placeholder: #5f6368;
+  --bib-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --bib-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.15);
+  --bib-shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.25);
+  --bib-skeleton-base: #e8e8e8;
+  --bib-skeleton-highlight: #f5f5f5;
+  --bib-glow-accent: 0 0 20px rgba(229, 9, 20, 0.2);
+  --bib-navbar-scrolled: rgba(255, 255, 255, 0.99);
+  --bib-row-fade: #f0f0f0;
 }
 
+/* ─── Base Reset ─── */
 html, body {
   width: 100%;
   height: 100%;
@@ -58,7 +76,7 @@ html, body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: var(--bib-bg);
   color: var(--bib-text);
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: background-color 0.35s ease, color 0.35s ease;
 }
 
 #root {
@@ -73,6 +91,7 @@ html, body {
 a {
   color: var(--bib-accent);
   text-decoration: none;
+  transition: color 0.2s ease;
 }
 a:hover {
   color: var(--bib-accent-hover);
@@ -84,4 +103,101 @@ a:hover {
   pointer-events: none;
   user-select: none;
   transition: filter 0.3s ease;
+}
+
+/* ─── Custom Scrollbar (webkit) ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bib-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bib-text-muted);
+}
+
+/* ─── Shared Animation Keyframes ─── */
+
+@keyframes bib-fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bib-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes bib-scale-in {
+  from { opacity: 0; transform: scale(0.93); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes bib-slide-left {
+  from { opacity: 0; transform: translateX(30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes bib-slide-right {
+  from { opacity: 0; transform: translateX(-30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes bib-skeleton-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@keyframes bib-pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(229, 9, 20, 0); }
+  50%       { box-shadow: var(--bib-glow-accent); }
+}
+
+@keyframes bib-bounce-soft {
+  0%, 100% { transform: translateY(0); }
+  40%       { transform: translateY(-8px); }
+  60%       { transform: translateY(-4px); }
+}
+
+@keyframes bib-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Utility Animation Classes ─── */
+
+.bib-anim-fade-up {
+  animation: bib-fade-up 0.5s ease-out both;
+}
+
+.bib-anim-scale-in {
+  animation: bib-scale-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.bib-anim-slide-left {
+  animation: bib-slide-left 0.45s ease-out both;
+}
+
+/* Stagger helpers */
+.bib-stagger-1 { animation-delay: 0.05s; }
+.bib-stagger-2 { animation-delay: 0.1s; }
+.bib-stagger-3 { animation-delay: 0.15s; }
+.bib-stagger-4 { animation-delay: 0.2s; }
+.bib-stagger-5 { animation-delay: 0.25s; }
+
+/* Skeleton loading base */
+.bib-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bib-skeleton-base) 25%,
+    var(--bib-skeleton-highlight) 50%,
+    var(--bib-skeleton-base) 75%
+  );
+  background-size: 800px 100%;
+  animation: bib-skeleton-shimmer 1.4s ease-in-out infinite;
+  border-radius: 4px;
 }
