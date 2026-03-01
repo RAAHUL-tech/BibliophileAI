@@ -1,0 +1,45 @@
+# kube-prometheus-stack values for BibliophileAI
+# Install: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#          helm repo update
+#          helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack -n monitoring -f prometheus-stack-values.yaml --create-namespace
+
+# Let Prometheus scrape ServiceMonitors in all namespaces (including default where our apps run)
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector: {}
+    retention: 15d
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        memory: 2Gi
+
+# Grafana: enable and set admin password
+grafana:
+  enabled: true
+  adminPassword: "admin"  # override in production via --set or sealed-secrets
+  persistence:
+    enabled: true
+    size: 5Gi
+  # Ingress optional - use port-forward for local: kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+  defaultDashboardsEnabled: true
+  defaultDashboardsTimezone: utc
+
+# Node exporter (node-level metrics)
+nodeExporter:
+  enabled: true
+
+# Kube state metrics (cluster-level: pods, deployments, etc.)
+kubeStateMetrics:
+  enabled: true
+
+# Alertmanager optional
+alertmanager:
+  enabled: true
