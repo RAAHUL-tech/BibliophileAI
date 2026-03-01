@@ -2,13 +2,20 @@ apiVersion: v1
 kind: Service
 metadata:
   name: recommendation-service
+  labels:
+    app: recommendation
 spec:
   selector:
     app: recommendation
   ports:
-  - port: 8001                    
-    targetPort: 8001 
-    protocol: TCP            
+  - name: http
+    port: 8001
+    targetPort: 8001
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
   type: ClusterIP
 
 ---
@@ -26,11 +33,17 @@ spec:
       labels:
         app: recommendation
     spec:
+      volumes:
+      - name: metrics-data
+        emptyDir: {}
       containers:
       - name: recommendation
         image: rahulkrish28/recommendation-service:latest
         ports:
-        - containerPort: 8001        
+        - containerPort: 8001
+        volumeMounts:
+        - name: metrics-data
+          mountPath: /metrics-data
         env:
         - name: SECRET_KEY
           valueFrom:
@@ -125,4 +138,23 @@ spec:
             secretKeyRef:
               name: secret
               key: INTERNAL_API_KEY
+      - name: metrics-sidecar
+        image: rahulkrish28/metrics-sidecar:latest
+        ports:
+        - name: metrics
+          containerPort: 9090
+        env:
+        - name: SERVICE_NAME
+          value: recommendation
+        - name: METRICS_PORT
+          value: "9090"
+        - name: METRICS_FILE
+          value: /metrics-data/app_metrics.json
+        volumeMounts:
+        - name: metrics-data
+          mountPath: /metrics-data
+        resources:
+          limits:
+            cpu: 50m
+            memory: 64Mi
 

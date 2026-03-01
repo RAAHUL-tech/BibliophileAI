@@ -3,6 +3,10 @@ kind: Ingress
 metadata:
   name: bibliophile-ingress
   annotations:
+    # Allow long-running /api/v1/recommend/combined (full pipeline can exceed 60s)
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "75"
     # CORS: allow frontend (e.g. Vite dev server on 5173) to call APIs via Ingress (e.g. port 8080)
     nginx.ingress.kubernetes.io/enable-cors: "true"
     nginx.ingress.kubernetes.io/cors-allow-origin: "http://localhost:5173"

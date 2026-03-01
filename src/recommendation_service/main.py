@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import os
+import time
 import json
 import redis
 import httpx
@@ -27,6 +28,7 @@ from linucb_inference import linucb_ranker
 from feature_engineering.feature_service import feature_service, get_feast_repo_path
 from ltr_ranking import rank_candidates as ltr_rank_candidates
 import ltr_postprocess
+from app_metrics import record_request, record_error, record_cache_hit, record_cache_miss, record_recommendation_duration_seconds, start_metrics_writer
 
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -71,6 +73,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path or "/"
+    record_request(request.method, path, response.status_code)
+    if response.status_code >= 400:
+        record_error(request.method, path)
+    return response
+
+
+start_metrics_writer()
 
 redis_client = redis.from_url(os.environ["REDIS_URL"])
 combined_scores_map = defaultdict(dict)
@@ -305,6 +320,29 @@ async def get_books_by_genre(genre: str, top_k: int = 25) -> Tuple[List[str], Li
         return [], []
 
 
+# Book-interaction event types only (excludes google-register, login, logout, etc.)
+_BOOK_INTERACTION_EVENTS = {"read", "page_turn", "review", "bookmark_add"}
+
+
+def _user_has_clickstream_data_sync(user_id: str) -> bool:
+    """
+    True if the user has more than one book-interaction clickstream event (existing user).
+    New users may have non-book events (e.g. google-register); we only count
+    read, page_turn, review, bookmark_add. Existing user = count > 1.
+    """
+    try:
+        client = MongoClient(os.environ["MONGO_URI"])
+        col = client["click_stream"]["events"]
+        count = col.count_documents({
+            "user_id": user_id,
+            "event_type": {"$in": list(_BOOK_INTERACTION_EVENTS)},
+        })
+        return count > 1
+    except Exception as e:
+        logger.warning(f"MongoDB clickstream check failed: {e}")
+        return False
+
+
 def _get_currently_reading_book_ids_sync(user_id: str, limit: int = 20) -> List[str]:
     """
     Books the user has started reading (has at least one page_turn event).
@@ -416,6 +454,7 @@ async def recommend_combined(
     # Always try cache first (cache does not store Trending Now; we inject from global Redis)
     cached = get_cached_recommendations(user_id)
     if cached is not None:
+        record_cache_hit()
         logger.info(f"Serving combined recommendations from cache for user {user_id}")
         trending = await _get_trending_now_category(top_k=50)
         categories_list = list(cached.get("categories") or [])
@@ -426,12 +465,47 @@ async def recommend_combined(
         print(f"Serving combined recommendations from cache for user {user_id}: {cached}")
         return cached
 
-    # Cache miss: compute full recommendations, then store and return
+    # Cache miss: check if new user (no clickstream data) -> only content-based + trending
+    record_cache_miss()
+    start_time = time.perf_counter()
     loop = asyncio.get_running_loop()
+    has_clickstream = await loop.run_in_executor(None, _user_has_clickstream_data_sync, user_id)
+    if not has_clickstream:
+        # New user: only Content-Based Recommendations and Trending Now; store in cache
+        print(f"Cache miss (new user): content-based + trending only for user {user_id}")
+        cb_book_ids, cb_scores = await cbr.dense_vector_recommendation(user_id, top_k=50)
+        trending = await _get_trending_now_category(top_k=50)
+        books_dict = {}
+        if cb_book_ids:
+            books_list = await get_books_by_ids(cb_book_ids)
+            books_dict = {str(b.get("id") or b.get("_id")): b for b in books_list}
+        category_recommendations = []
+        if cb_book_ids:
+            books = []
+            for bid, score in zip(cb_book_ids, cb_scores):
+                if bid in books_dict:
+                    b = books_dict[bid].copy()
+                    b["score"] = float(score)
+                    books.append(b)
+            if books:
+                category_recommendations.append({
+                    "category": "Content-Based Recommendations",
+                    "description": "Books similar to your preferences",
+                    "books": books,
+                })
+        if trending.get("books"):
+            category_recommendations.append(trending)
+        to_cache = [c for c in category_recommendations if c.get("category") != "Trending Now"]
+        set_cached_recommendations(user_id, {"categories": to_cache})
+        record_recommendation_duration_seconds(time.perf_counter() - start_time)
+        print(f"Returning {len(category_recommendations)} categories for new user {user_id}")
+        return {"categories": category_recommendations}
+
+    # Existing user: full pipeline
     currently_reading_ids = await loop.run_in_executor(
         None, _get_currently_reading_book_ids_sync, user_id, 20
     )
-    print(f"Cache miss: generating recommendations for user {user_id}")
+    print(f"Cache miss: generating full recommendations for user {user_id}")
     
     # Content-based
     cb_book_ids, cb_scores = await cbr.dense_vector_recommendation(user_id, top_k=50)
@@ -440,7 +514,6 @@ async def recommend_combined(
     als_book_ids, cf_scores = await cf.recommend_als_books(user_id, top_k=50)
     
     # Graph-based
-    loop = asyncio.get_running_loop()
     graph_results = await loop.run_in_executor(None, graph_recommend_books, user_id, 50)
     graph_book_ids = [bid for bid, _ in graph_results]
     graph_scores = [score for _, score in graph_results]
@@ -621,6 +694,7 @@ async def recommend_combined(
     # Don't store Trending Now per user; it always comes from global Redis (popularity:trending:*)
     to_cache = {"categories": [c for c in category_recommendations if c.get("category") != "Trending Now"]}
     set_cached_recommendations(user_id, to_cache)
+    record_recommendation_duration_seconds(time.perf_counter() - start_time)
     print(f"Returning {len(category_recommendations)} categories with recommendations")
     return payload
 

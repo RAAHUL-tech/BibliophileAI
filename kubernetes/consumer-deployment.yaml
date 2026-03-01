@@ -1,3 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickstream-consumer
+  labels:
+    app: clickstream-consumer
+spec:
+  selector:
+    app: clickstream-consumer
+  ports:
+    - name: http
+      port: 8002
+      targetPort: 8002
+      protocol: TCP
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
+  type: ClusterIP
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,11 +33,17 @@ spec:
         app: clickstream-consumer
     spec:
       restartPolicy: Always
+      volumes:
+        - name: metrics-data
+          emptyDir: {}
       containers:
         - name: clickstream-consumer
           image: rahulkrish28/clickstream-consumer
           ports:
             - containerPort: 8002
+          volumeMounts:
+            - name: metrics-data
+              mountPath: /metrics-data
           env:
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
@@ -48,3 +74,22 @@ spec:
             limits:
               cpu: "200m"
               memory: "256Mi"
+        - name: metrics-sidecar
+          image: rahulkrish28/metrics-sidecar:latest
+          ports:
+            - name: metrics
+              containerPort: 9090
+          env:
+            - name: SERVICE_NAME
+              value: clickstream-consumer
+            - name: METRICS_PORT
+              value: "9090"
+            - name: METRICS_FILE
+              value: /metrics-data/app_metrics.json
+          volumeMounts:
+            - name: metrics-data
+              mountPath: /metrics-data
+          resources:
+            limits:
+              cpu: 50m
+              memory: 64Mi

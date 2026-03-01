@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: clickstream-consumer
+  namespace: default
+  labels:
+    app: clickstream-consumer
+spec:
+  selector:
+    matchLabels:
+      app: clickstream-consumer
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
+    scrapeTimeout: 10s

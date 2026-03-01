@@ -8,6 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from pinecone import Pinecone
+from fastapi import Request
+from app_metrics import record_request, record_error, start_metrics_writer
 
 
 logger = logging.getLogger("search_service")
@@ -37,6 +39,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path or "/"
+    record_request(request.method, path, response.status_code)
+    if response.status_code >= 400:
+        record_error(request.method, path)
+    return response
+
+
+start_metrics_writer()
 
 
 pc: Optional[Pinecone] = None

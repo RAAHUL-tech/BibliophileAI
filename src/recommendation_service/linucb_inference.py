@@ -212,8 +212,8 @@ class LinUCBServe:
         try:
             A_inv = np.linalg.inv(A)
             theta = A_inv @ b
-            mean = float((theta.T @ x))
-            unc = float(np.sqrt(x.T @ A_inv @ x))
+            mean = (theta.T @ x).item()
+            unc = (np.sqrt(x.T @ A_inv @ x)).item()
             return mean + self.alpha * unc
         except np.linalg.LinAlgError:
             return 0.5

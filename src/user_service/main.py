@@ -37,6 +37,7 @@ import zipfile
 import mimetypes
 from produce import send_click_event
 import asyncio
+from app_metrics import record_request, record_error, start_metrics_writer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -53,11 +54,25 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],      
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path or "/"
+    record_request(request.method, path, response.status_code)
+    if response.status_code >= 400:
+        record_error(request.method, path)
+    return response
+
+
+# Start background writer for /metrics-data/app_metrics.json (sidecar reads it)
+start_metrics_writer()
 
 
 def _trigger_recommendation_refresh(path_suffix: str, user_id: str) -> None:

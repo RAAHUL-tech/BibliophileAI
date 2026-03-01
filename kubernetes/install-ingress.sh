@@ -23,8 +23,20 @@ kubectl wait --namespace ingress-nginx \
   --selector=app.kubernetes.io/component=controller \
   --timeout=120s
 
-echo "Applying BibliophileAI Ingress (routes /api/v1/user and /api/v1/recommend)..."
-kubectl apply -f "$(dirname "$0")/ingress.yaml"
+# Admission webhook may not be ready immediately after the controller pod is ready
+echo "Applying BibliophileAI Ingress (routes /api/v1/user, /api/v1/recommend, /api/v1/search)..."
+INGRESS_FILE="$(dirname "$0")/ingress.yaml"
+for i in $(seq 1 10); do
+  if kubectl apply -f "$INGRESS_FILE"; then
+    break
+  fi
+  if [[ $i -eq 10 ]]; then
+    echo "Failed to apply Ingress after 10 retries. Run: kubectl apply -f $INGRESS_FILE" >&2
+    exit 1
+  fi
+  echo "  Retry $i/10 in 5s (admission webhook may still be starting)..."
+  sleep 5
+done
 
 echo ""
 echo "Done. To expose the Ingress on localhost:8080, run:"
