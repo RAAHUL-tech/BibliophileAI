@@ -1,3 +1,7 @@
+"""
+SASRec PyTorch model: transformer encoder over item embeddings for session-based
+sequence encoding; used by sasrec_inference for session recommendations.
+"""
 import torch
 import torch.nn as nn
 

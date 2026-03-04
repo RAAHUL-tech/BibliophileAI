@@ -1,3 +1,4 @@
+# NGINX Ingress: routes /api/v1/user, /api/v1/recommend, /api/v1/search to backend services with CORS and proxy timeouts.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

@@ -1,3 +1,7 @@
+"""
+Clickstream consumer: long-poll SQS for user events, persist to MongoDB, and record
+event counts for the metrics sidecar. Runs alongside the main app in the consumer pod.
+"""
 import os
 import boto3
 import json

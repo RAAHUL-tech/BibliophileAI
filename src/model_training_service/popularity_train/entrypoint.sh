@@ -1,4 +1,5 @@
 #!/bin/bash
+# Entrypoint for popularity training container: start Ray head, run popularity_train.py, then stop Ray.
 set -e
 
 echo "Starting Ray head node for popularity training..."

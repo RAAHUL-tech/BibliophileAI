@@ -1,4 +1,4 @@
-# kube-prometheus-stack values for BibliophileAI
+# kube-prometheus-stack Helm values for BibliophileAI: Prometheus (scrape all ServiceMonitors), Grafana, node-exporter, kube-state-metrics, Alertmanager.
 # Install: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 #          helm repo update
 #          helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack -n monitoring -f prometheus-stack-values.yaml --create-namespace

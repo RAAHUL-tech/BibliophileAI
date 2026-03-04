@@ -1,4 +1,5 @@
 #!/bin/bash
+# Entrypoint for SASRec training container: start Ray head, run sasrec_train.py, then stop Ray.
 set -e
 
 echo "Starting Ray head node..."

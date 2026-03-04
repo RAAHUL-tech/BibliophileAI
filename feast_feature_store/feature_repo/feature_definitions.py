@@ -1,3 +1,7 @@
+"""
+Feast feature definitions: user_book entity and user_book_features view (29 features)
+with Parquet source on S3 for offline/online LTR training and inference.
+"""
 from feast import FeatureView, Entity, Feature, FileSource, PushSource, ValueType, Field
 from feast.data_format import ParquetFormat
 from feast.types import Float32, Int32, String

@@ -1,5 +1,6 @@
 """
-Write /metrics-data/app_metrics.json for the metrics sidecar. No Prometheus dependency.
+App metrics for the search service: thread-safe HTTP request/error counts written to
+/metrics-data/app_metrics.json for the metrics sidecar. No Prometheus dependency in-app.
 """
 import json
 import os

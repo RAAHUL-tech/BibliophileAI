@@ -1,3 +1,6 @@
+"""
+JWT access token creation and decoding for the user service (HS256, configurable expiry).
+"""
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
 import os

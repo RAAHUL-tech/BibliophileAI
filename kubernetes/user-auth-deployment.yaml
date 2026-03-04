@@ -1,3 +1,4 @@
+# User/auth service: Service and Deployment (FastAPI, port 8000) with metrics sidecar; uses Supabase and Neo4j.
 apiVersion: v1
 kind: Service
 metadata:

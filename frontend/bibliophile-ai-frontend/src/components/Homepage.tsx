@@ -1,3 +1,7 @@
+/**
+ * Homepage: fetches combined recommendations, renders category rows (Netflix-style), search bar,
+ * profile/settings dropdown, theme toggle, and book overlays.
+ */
 import { useState, useEffect, useRef, useMemo, useCallback, type FC } from "react"
 import { Dropdown, Navbar, Container, Nav } from "react-bootstrap"
 import Profile from "./Profile"

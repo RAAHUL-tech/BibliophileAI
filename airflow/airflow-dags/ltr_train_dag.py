@@ -1,3 +1,7 @@
+"""
+Airflow DAG: daily LTR (Learning-to-Rank) training via KubernetesPodOperator;
+runs ltr-train image to train XGBoost LambdaRank and upload model to S3.
+"""
 from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.models import Variable

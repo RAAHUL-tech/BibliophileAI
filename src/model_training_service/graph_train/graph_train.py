@@ -1,3 +1,7 @@
+"""
+Graph training: load user-book-author-genre graph from Neo4j, run Node2Vec embeddings,
+and upload node embeddings (Parquet) to S3 for graph-based recommendations.
+"""
 import os
 from io import BytesIO
 from typing import Any, Dict

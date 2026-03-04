@@ -1,3 +1,7 @@
+"""
+Book embeddings: fetch books from Supabase, compute or fetch embeddings, and upsert
+vectors into Pinecone book-metadata-index for search and content-based recommendation.
+"""
 import os
 import asyncio
 import httpx

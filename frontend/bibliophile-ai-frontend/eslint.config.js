@@ -1,3 +1,6 @@
+/**
+ * ESLint flat config for BibliophileAI frontend: TypeScript, React, react-hooks, react-refresh.
+ */
 import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'

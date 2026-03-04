@@ -1,5 +1,6 @@
 """
-Write /metrics-data/app_metrics.json for the metrics sidecar. No Prometheus dependency.
+App metrics for the clickstream consumer: event-type counts written to
+/metrics-data/app_metrics.json for the metrics sidecar. No Prometheus dependency in-app.
 """
 import json
 import os

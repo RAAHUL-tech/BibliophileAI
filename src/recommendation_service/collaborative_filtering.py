@@ -1,3 +1,7 @@
+"""
+Collaborative filtering (ALS): load user and book factor matrices from S3, score books
+for a user by inner product, and return top-k book IDs and scores.
+"""
 import os
 from typing import List, Tuple
 import pandas as pd

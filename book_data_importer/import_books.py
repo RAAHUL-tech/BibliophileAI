@@ -1,3 +1,7 @@
+"""
+Import books from Gutendex by genre, upsert into Supabase books table with metadata
+(title, authors, categories, language, download_link, etc.).
+"""
 import asyncio
 import httpx
 import os

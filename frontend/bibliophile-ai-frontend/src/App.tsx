@@ -1,3 +1,7 @@
+/**
+ * Root app component: auth state (token, session), routes (login, register, onboarding, homepage),
+ * Google OAuth, and navigation guards.
+ */
 import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Register from './components/Register'

@@ -1,3 +1,7 @@
+"""
+Airflow DAG: daily ALS (collaborative filtering) training via KubernetesPodOperator;
+runs als-train image to produce user/book factors and upload to S3.
+"""
 from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.models import Variable

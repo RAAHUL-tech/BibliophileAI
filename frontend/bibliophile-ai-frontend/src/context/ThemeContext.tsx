@@ -1,3 +1,6 @@
+/**
+ * Theme context: dark/light theme state, persisted in localStorage, applied via data-theme on document.
+ */
 import { createContext, useContext, useState, useMemo, useEffect, type ReactNode } from "react"
 
 export type Theme = "dark" | "light"

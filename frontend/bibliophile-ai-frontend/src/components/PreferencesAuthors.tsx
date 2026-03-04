@@ -1,3 +1,6 @@
+/**
+ * Onboarding step: author selection (fetch from API, multi-select) and save/back.
+ */
 import { useState, useEffect } from "react";
 
 type PreferencesAuthorsProps = {

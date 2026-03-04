@@ -1,3 +1,6 @@
+/**
+ * Search results overlay: horizontal slider of book cards from search API with prev/next and close.
+ */
 import { type FC, useRef } from "react"
 import { FaChevronLeft, FaChevronRight, FaTimes } from "react-icons/fa"
 import { type BookRecommendation } from "./BookOverlay"

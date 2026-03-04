@@ -1,3 +1,6 @@
+/**
+ * EPUB reader view: fetches EPUB from S3, renders with react-reader; supports rating/review and page-turn events.
+ */
 import { useState, useEffect, useRef } from "react";
 import { ReactReader } from "react-reader";
 import { FaStar, FaRegStar } from "react-icons/fa";

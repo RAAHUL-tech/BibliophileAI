@@ -1,3 +1,7 @@
+"""
+Scrape book descriptions from external info links and update Supabase books table
+with description text (BeautifulSoup).
+"""
 import os
 import asyncio
 import httpx

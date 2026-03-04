@@ -1,3 +1,7 @@
+"""
+Airflow DAG: daily graph analytics training (Node2Vec on Neo4j graph) via
+KubernetesPodOperator; runs graph-train image and uploads embeddings to S3.
+"""
 from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.models import Variable

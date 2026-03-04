@@ -1,3 +1,7 @@
+"""
+LTR (Learning-to-Rank) training: load relevance labels from MongoDB, join with Feast/S3
+features, train XGBoost LambdaRank (rank:ndcg), and upload model to S3.
+"""
 import os
 import sys
 import io

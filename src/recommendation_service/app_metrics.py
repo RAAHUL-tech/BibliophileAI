@@ -1,6 +1,6 @@
 """
-Write /metrics-data/app_metrics.json for the metrics sidecar. No Prometheus dependency.
-Supports HTTP metrics and recommendation cache/duration metrics.
+App metrics for the recommendation service: HTTP, cache hit/miss, and recommendation
+duration written to /metrics-data/app_metrics.json for the metrics sidecar.
 """
 import json
 import os

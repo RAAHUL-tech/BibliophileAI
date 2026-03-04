@@ -1,3 +1,6 @@
+/**
+ * Vite config for the BibliophileAI frontend: React plugin and dev/build settings.
+ */
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 

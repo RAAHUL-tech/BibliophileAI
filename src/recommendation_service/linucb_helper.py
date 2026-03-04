@@ -1,3 +1,7 @@
+"""
+LinUCB feature helpers: content similarity (Pinecone), ALS score (S3 factors), graph
+PageRank (Neo4j/Redis), plus user/book metadata and Redis caching for bandit features.
+"""
 import os
 import pandas as pd
 import numpy as np

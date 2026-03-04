@@ -1,3 +1,4 @@
+# Search service: Service and Deployment (FastAPI, port 8002) with metrics sidecar; Pinecone + Supabase book search.
 apiVersion: v1
 kind: Service
 metadata:

@@ -1,3 +1,6 @@
+/**
+ * Post-registration onboarding flow: genre → authors → demographics, then calls onComplete.
+ */
 import { useState } from "react";
 import PreferencesGenre from "./PreferencesGenre";
 import PreferencesAuthors from "./PreferencesAuthors";

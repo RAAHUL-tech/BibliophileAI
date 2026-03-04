@@ -1,3 +1,7 @@
+"""
+Supabase REST client for the user service: users, preferences, books, bookmarks,
+reviews, sessions, and profile operations (async httpx).
+"""
 from http.client import HTTPException
 import os
 import httpx

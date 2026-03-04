@@ -1,3 +1,8 @@
+"""
+Recommendation service: FastAPI app for combined recommendations (/api/v1/recommend/combined)
+from Redis cache or full pipeline (CBR, ALS, graph, SASRec, popularity, LinUCB, LTR, Feast).
+Also exposes internal refresh endpoints for background cache updates.
+"""
 from datetime import datetime, timedelta
 import os
 import time

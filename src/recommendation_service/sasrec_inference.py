@@ -1,3 +1,7 @@
+"""
+Session-based recommendations (SASRec): load trained model from S3, fetch user session
+from MongoDB, and return top-k book IDs and scores from the session encoder.
+"""
 import os
 import io
 import time

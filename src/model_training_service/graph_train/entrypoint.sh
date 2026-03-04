@@ -1,4 +1,5 @@
 #!/bin/bash
+# Entrypoint for graph training container: start Ray head, run graph_train.py, then stop Ray.
 set -e
 
 echo "Starting Ray head node..."

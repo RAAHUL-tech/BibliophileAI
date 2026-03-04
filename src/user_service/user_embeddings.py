@@ -1,3 +1,7 @@
+"""
+User preference embeddings: builds text from genres/authors/age/pincode and upserts
+vector embeddings into Pinecone for content-based recommendation.
+"""
 import os
 from pinecone import Pinecone
 

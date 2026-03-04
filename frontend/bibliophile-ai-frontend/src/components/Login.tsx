@@ -1,3 +1,6 @@
+/**
+ * Login form: username/password submit, JWT + sessionId on success, optional link to register.
+ */
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './SharedStyles.css'

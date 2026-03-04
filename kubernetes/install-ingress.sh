@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Install NGINX Ingress controller via Helm and apply BibliophileAI Ingress.
+# Routes /api/v1/user, /api/v1/recommend, /api/v1/search to the corresponding services.
 # Expose on localhost:8080 with: kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8080:80
 # (Port 80 requires sudo on macOS/Linux; 8080 works without.)
 

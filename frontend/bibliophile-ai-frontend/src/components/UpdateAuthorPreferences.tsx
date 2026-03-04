@@ -1,3 +1,6 @@
+/**
+ * Inline author preference editor: fetch popular authors, multi-select, save/cancel; used from Profile.
+ */
 import { useState, useEffect } from "react"
 import "./SharedStyles.css"
 

@@ -1,3 +1,4 @@
+# Recommendation service: Service and Deployment (FastAPI, port 8001) with metrics sidecar; combined recommendations and internal refresh.
 apiVersion: v1
 kind: Service
 metadata:

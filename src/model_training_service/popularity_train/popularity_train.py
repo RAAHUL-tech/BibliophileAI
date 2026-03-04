@@ -1,3 +1,8 @@
+"""
+Popularity training: aggregate click-stream events from MongoDB with time-decay,
+compute trending scores per window (7d/30d/90d), train a small PyTorch model, and
+write Redis keys + model to S3 for the recommendation service.
+"""
 import os
 import math
 import logging

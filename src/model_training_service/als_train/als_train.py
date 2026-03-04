@@ -1,3 +1,7 @@
+"""
+ALS (Alternating Least Squares) training: load click-stream events from MongoDB,
+build user-item matrix, train implicit.als model, and upload user/book factors to S3.
+"""
 import os
 import logging
 import pandas as pd

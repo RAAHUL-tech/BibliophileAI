@@ -1,4 +1,7 @@
-# src/recommendation_service/popularity_recommendation.py
+"""
+Popularity-based recommendations: serve trending book IDs from Redis (per-window keys)
+with optional S3 PyTorch fallback. Used for "Trending Now" and as a candidate source.
+"""
 import os
 import redis
 import boto3

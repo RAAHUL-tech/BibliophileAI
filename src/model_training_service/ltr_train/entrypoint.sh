@@ -1,4 +1,5 @@
 #!/bin/bash
+# Entrypoint for LTR training container: start Ray head, run ltr_train.py, then stop Ray.
 set -e
 
 echo "Starting Ray head node..."

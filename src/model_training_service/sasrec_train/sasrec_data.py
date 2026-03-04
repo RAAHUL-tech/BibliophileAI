@@ -1,3 +1,7 @@
+"""
+SASRec data pipeline: load click-stream sessions from MongoDB, build item vocabulary,
+and provide PyTorch Dataset for sequence training (padded item IDs, max_len).
+"""
 import os
 import time
 import logging

@@ -1,3 +1,7 @@
+"""
+Graph-based recommendations: build a Neo4j subgraph around the user (follows, read, rated),
+run personalized PageRank with social boost from friends’ ratings, return top-k book IDs and scores.
+"""
 from neo4j import GraphDatabase
 from typing import List, Tuple, Dict
 import os

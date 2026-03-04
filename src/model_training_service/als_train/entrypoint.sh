@@ -1,4 +1,5 @@
 #!/bin/bash
+# Entrypoint for ALS training container: start Ray head, run als_train.py, then stop Ray.
 set -e
 
 echo "Starting Ray head node..."

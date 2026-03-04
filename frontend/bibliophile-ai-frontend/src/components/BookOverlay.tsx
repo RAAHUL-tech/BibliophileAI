@@ -1,3 +1,6 @@
+/**
+ * Book overlay: book details, bookmark button, and link to open BookView (reader).
+ */
 import { useState, useCallback, type FC } from "react"
 import BookView from "./BookView"
 import { FaTimes, FaBookOpen } from "react-icons/fa"

@@ -1,4 +1,7 @@
-# feature_service.py - COMPLETE 29-feature pipeline with ALL corrections
+"""
+Feast feature engineering: builds 29-feature vectors from combined_scores_map and session
+context, writes to Feast offline store (S3), and materializes to online store (Redis) for LTR.
+"""
 import os
 import re
 import shutil

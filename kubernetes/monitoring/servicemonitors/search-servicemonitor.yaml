@@ -1,3 +1,4 @@
+# ServiceMonitor for search-service: Prometheus scrapes metrics from the metrics sidecar (port 9090).
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:

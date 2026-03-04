@@ -1,3 +1,7 @@
+"""
+Graph book importer: fetch books from Supabase and create Neo4j Book/Genre/Author
+nodes and relationships for graph-based recommendation.
+"""
 import os
 import asyncio
 import httpx

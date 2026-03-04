@@ -1,3 +1,7 @@
+"""
+Pydantic request/response models for the user service (user creation, preferences,
+logout, profile, reviews, page-turn events).
+"""
 from pydantic import BaseModel
 from typing import Optional, List
 

@@ -1,3 +1,7 @@
+"""
+Search service: FastAPI app that vectorizes queries via Pinecone embeddings, searches
+the book index, and returns full book data from Supabase. Exposes POST /api/v1/search.
+"""
 import logging
 import os
 from typing import Any, Dict, List, Optional

@@ -1,3 +1,7 @@
+"""
+Airflow DAG: hourly popularity/trending training via KubernetesPodOperator;
+runs popularity-train image to update Redis trending keys and S3 model.
+"""
 from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.models import Variable

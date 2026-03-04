@@ -1,3 +1,7 @@
+"""
+Airflow DAG: daily SASRec (session-based) training via KubernetesPodOperator;
+runs sasrec-train image to train transformer model and upload checkpoint to S3.
+"""
 from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.models import Variable

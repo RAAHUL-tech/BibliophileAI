@@ -1,3 +1,6 @@
+/**
+ * Onboarding step: pincode and age form with validation and save/back.
+ */
 import { useState } from "react";
 
 type DemographicProps = {

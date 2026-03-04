@@ -1,3 +1,6 @@
+/**
+ * Inline genre preference editor: multi-select genres and save/cancel; used from Profile.
+ */
 import { useState, useEffect } from "react"
 import "./SharedStyles.css"
 

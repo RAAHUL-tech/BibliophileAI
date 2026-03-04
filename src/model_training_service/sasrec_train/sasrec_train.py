@@ -1,3 +1,7 @@
+"""
+SASRec training: load sessions from MongoDB, build vocab and dataset, train the
+transformer-based session model, and upload checkpoint to S3 for inference.
+"""
 import os
 import logging
 from typing import Dict, Tuple, List, Any

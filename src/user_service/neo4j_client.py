@@ -1,3 +1,7 @@
+"""
+Neo4j client for the user service: user nodes, follows, read/bookmarked/rated books,
+preferences, and social graph queries (followers, following, suggestions).
+"""
 from neo4j import GraphDatabase
 from typing import List, Optional
 from datetime import datetime

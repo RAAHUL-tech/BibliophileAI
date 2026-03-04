@@ -1,6 +1,8 @@
 """
-Metrics sidecar: exposes /metrics in Prometheus format.
-Reads app-provided metrics from shared volume (JSON). No metrics logic in main app.
+Metrics sidecar: runs alongside each app pod and exposes /metrics in Prometheus format.
+Reads app-provided metrics from a shared volume JSON file (/metrics-data/app_metrics.json)
+and serves them as Prometheus gauges. No Prometheus or metrics logic in the main app—
+the app only writes JSON; this sidecar handles exposition for scraping.
 """
 import json
 import os

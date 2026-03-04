@@ -1,3 +1,6 @@
+/**
+ * Onboarding step: genre selection (multi-select with emojis) and next/back.
+ */
 import { useState } from "react"
 
 const allGenres = [

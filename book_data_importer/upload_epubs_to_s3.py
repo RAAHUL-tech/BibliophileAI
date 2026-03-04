@@ -1,3 +1,7 @@
+"""
+Upload EPUBs to S3: fetch books from Supabase (download_link), download EPUBs, and
+upload to AWS S3 under books-epub/ for the reading experience.
+"""
 import os
 import requests
 import boto3

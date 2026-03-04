@@ -1,3 +1,7 @@
+"""
+Content-based recommendations: query user preference vector from Pinecone user index,
+then similarity-search the book index to return top-k book IDs and scores.
+"""
 import os
 from typing import List, Tuple
 from pinecone import Pinecone

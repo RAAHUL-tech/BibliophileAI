@@ -8,21 +8,57 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org)
 [![Neo4j](https://img.shields.io/badge/Neo4j-008CC1?style=for-the-badge&logo=neo4j&logoColor=white)](https://neo4j.com)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io)
-[![Kafka](https://img.shields.io/badge/Apache%20Kafka-231F20?style=for-the-badge&logo=apache-kafka&logoColor=white)](https://kafka.apache.org)
+[![AWS SQS](https://img.shields.io/badge/AWS%20SQS-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/sqs/)
 [![Ray](https://img.shields.io/badge/Ray-028CF0?style=for-the-badge&logo=ray&logoColor=white)](https://ray.io)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
 **A production-grade recommendation system combining 6 recommendation algorithms, Ray-based distributed training, XGBoost learning-to-rank, and Feast feature store to deliver hyper-personalized book recommendations at scale.**
 
-[Features](#-key-features) • [Architecture](#️-system-architecture) • [ML Pipeline](#-recommendation-pipeline) • [Technology](#️-technology-stack) • [Contributing](#-contributing)
+[What & Why](#-what-is-this-project) • [Architecture](#-system-architecture) • [Request Flow](#-end-to-end-request-flow) • [Pipeline](#-recommendation-pipeline) • [Tech Stack](#️-technology-stack) • [Getting Started](#-getting-started) • [Contributing](#-contributing)
 
 </div>
 
 ---
 
+## 📌 What is this project?
+
+**BibliophileAI** is a **social book recommendation platform** that helps users discover books through personalized feeds, semantic search, and social signals. It is built as a **microservices-based system** running on Kubernetes, with a React frontend, multiple backend services (user, recommendation, search), and an event-driven pipeline for clickstream data and offline model training.
+
+### 🎯 Goals
+
+- **Personalization at scale** — Combine content-based, collaborative, graph-based, session-based, and popularity-driven signals into one ranked feed.
+- **Production-ready design** — Clear service boundaries, polyglot persistence (PostgreSQL, MongoDB, Neo4j, Redis, Pinecone, S3), caching, and observability (Prometheus/Grafana).
+- **Full ML lifecycle** — From candidate generation and feature engineering (Feast) to learning-to-rank (XGBoost) and diversity-aware post-processing, with Airflow-orchestrated training (ALS, Graph, SASRec, Popularity, LTR).
+- **Explainability and control** — Users see why a book is recommended (e.g. “Readers like you also liked”, “Trending in your genre”); operators can tune algorithms and training schedules.
+
+### 🔧 What problem it solves
+
+- **Discovery** — Users get a single, ranked “For You” experience (Netflix-style rows by algorithm/category) instead of scattered lists.
+- **Cold start** — New users get content-based and trending recommendations from day one; the system refines with behavior.
+- **Sparsity & gray sheep** — Hybrid algorithms and fallbacks (content-based, popularity) handle sparse data and niche tastes.
+- **Latency vs. quality** — Multi-stage pipeline: fast candidate retrieval, then feature engineering and LTR on a smaller set, with Redis cache for repeated requests.
+- **Operational clarity** — Services, data stores, and training jobs are separated so teams can own and scale parts independently.
+
+### ⚠️ Limitations
+
+- **External dependencies** — Requires Supabase, MongoDB, Neo4j, Pinecone, AWS (S3, SQS), and (optional) Google OAuth. Not a single-binary or single-DB setup.
+- **First-request latency** — Full recommendation pipeline on cache miss can take 1–2 minutes; the Ingress is tuned (e.g. 300s) so the request does not time out. Subsequent requests are fast from cache.
+- **Training lag** — Models (ALS, Graph, SASRec, etc.) are trained offline (e.g. daily/hourly via Airflow); recommendations use the last published model until the next run.
+- **Scale and cost** — Designed for moderate scale; very large catalogs or QPS may need more tuning (sharding, caching, model serving) and higher infra cost.
+
+### 💡 How to improve
+
+- **Latency** — Pre-warm cache for active users, optimize LTR/Feast lookups, consider a dedicated ranking service with gRPC.
+- **Freshness** — More frequent training or incremental updates (e.g. streaming model updates), real-time feature pipelines.
+- **Evaluation** — Add offline metrics (NDCG, recall) and A/B tests; expose them in Grafana.
+- **Resilience** — Circuit breakers and fallbacks per algorithm; degrade gracefully if one store (e.g. Neo4j) is slow.
+- **Security** — Keep secrets in a vault; use short-lived tokens and least-privilege IAM for AWS/Supabase/Neo4j.
+
+---
+
 ## 🎯 Overview
 
-BibliophileAI is a sophisticated book recommendation platform that combines classical recommendation algorithms, deep learning, and graph-based social intelligence. Built on a modern microservices foundation with polyglot persistence, it processes millions of interactions in real-time while delivering sub-100ms recommendation latency.
+BibliophileAI is a sophisticated book recommendation platform that combines classical recommendation algorithms, deep learning, and graph-based social intelligence. Built on a modern microservices foundation with polyglot persistence, it processes millions of interactions in real-time while delivering sub-100ms recommendation latency when served from cache.
 
 This project represents a production-grade implementation of hybrid recommendation systems, comparable to the recommendation engines powering Netflix, Spotify, and Amazon. It addresses fundamental challenges identified in recent recommendation systems research, including cold start problems, data sparsity, gray sheep users, scalability bottlenecks, and the exploration-exploitation trade-off.
 
@@ -30,10 +66,10 @@ This project represents a production-grade implementation of hybrid recommendati
 
 - **🧠 Research-Grade ML**: Implements state-of-the-art algorithms from top-tier RecSys, KDD, and SIGIR papers
 - **🌐 Multi-Database Architecture**: Leverages PostgreSQL, MongoDB, Neo4j, Redis, and Pinecone for optimal performance
-- **📡 Event-Driven Design**: Real-time user behavior processing with Apache Kafka streaming
+- **📡 Event-Driven Design**: Real-time user behavior processing with AWS SQS (Kafka can be used as a replacement for higher throughput)
 - **🤝 Social Intelligence**: Graph-based recommendations using Neo4j and PageRank algorithms
 - **⚡ Sub-100ms Latency**: Multi-stage ranking pipeline with intelligent caching
-- **📖 Open Library Integration**: Powered by Gutendex API for Project Gutenberg's collection
+- **📖 Book catalog**: Books are scraped from Gutendex (Project Gutenberg index) and stored in Supabase; the book_data_importer handles ingestion.
 
 ### 🎓 What Makes This Different from Academic Projects
 
@@ -41,7 +77,7 @@ Most recommendation system projects implement a single algorithm or use simplifi
 
 - **Production Architecture**: Full microservices stack with proper separation of concerns, not monolithic notebooks
 - **Multi-Algorithm Ensemble**: Six different recommendation algorithms working together, not just collaborative filtering
-- **Real-Time Processing**: Event streaming with Kafka for live user behavior tracking
+- **Real-Time Processing**: Event streaming with AWS SQS for live user behavior tracking (replaceable by Kafka for higher scale)
 - **Social Graph Integration**: Neo4j graph database for relationship-based recommendations
 - **Scalability by Design**: Kubernetes orchestration, horizontal scaling, and caching strategies
 - **Complete ML Lifecycle**: Ray-based distributed training, Feast feature store, XGBoost learning-to-rank, and diversity-aware post-processing
@@ -112,17 +148,223 @@ Modern recommender systems research emphasizes that accuracy alone is insufficie
 
 ## 🏗️ System Architecture
 
-### High-Level Architecture Diagram
-![BibliophileAI_Architecture](https://github.com/user-attachments/assets/17b1ae43-32f6-4f1e-aba8-8bfa304c6d93)
+### High-Level Architecture (Overview)
 
+The diagram below shows how the **client**, **ingress**, **core services**, **data stores**, **clickstream consumer**, **offline training**, and **monitoring** fit together.
+
+![BibliophileAI Architecture](https://github.com/user-attachments/assets/17b1ae43-32f6-4f1e-aba8-8bfa304c6d93)
+
+*Flow: React SPA → Ingress → User / Recommendation / Search services → Supabase, Redis, Neo4j, Pinecone, MongoDB, S3, SQS → Clickstream Consumer → Airflow (ALS, Graph, LTR, Popularity, SASRec) → Prometheus + Grafana.*
+
+### Architecture (Mermaid)
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#E3F2FD', 'primaryTextColor':'#0D47A1', 'primaryBorderColor':'#1976D2', 'lineColor':'#424242', 'secondaryColor':'#F3E5F5', 'tertiaryColor':'#E8F5E9' }}}%%
+flowchart TB
+    subgraph Client["🖥️ Client"]
+        SPA["React SPA"]
+    end
+
+    subgraph Ingress["🌐 Ingress"]
+        NGINX["Ingress Controller<br/>/user · /recommend · /search"]
+    end
+
+    subgraph K8s["Kubernetes Cluster"]
+        subgraph Services["Core Services"]
+            US["User Service"]
+            RS["Recommendation Service"]
+            SS["Search Service"]
+        end
+        CC["Clickstream Consumer"]
+    end
+
+    subgraph Data["Data & Messaging"]
+        Supabase[("Supabase Postgres")]
+        Redis[("Redis")]
+        Neo4j[("Neo4j")]
+        Pinecone[("Pinecone")]
+        MongoDB[("MongoDB")]
+        S3[("AWS S3")]
+        SQS["AWS SQS"]
+    end
+
+    subgraph Training["Offline Model Training"]
+        Airflow["Airflow"]
+        ALS["ALS Train"]
+        Graph["Graph Train"]
+        LTR["LTR Train"]
+        Pop["Popularity Train"]
+        SasRec["SASRec Train"]
+    end
+
+    subgraph Monitor["Monitoring"]
+        Prom["Prometheus"]
+        Grafana["Grafana"]
+    end
+
+    SPA --> NGINX
+    NGINX --> US
+    NGINX --> RS
+    NGINX --> SS
+    US --> Supabase
+    US --> SQS
+    RS --> Redis
+    RS --> Neo4j
+    RS --> Pinecone
+    RS --> SQS
+    SS --> Pinecone
+    SQS --> CC
+    CC --> MongoDB
+    RS --> S3
+    Airflow --> ALS
+    Airflow --> Graph
+    Airflow --> LTR
+    Airflow --> Pop
+    Airflow --> SasRec
+    ALS --> S3
+    Graph --> Neo4j
+    SasRec --> S3
+    Pop --> Redis
+    LTR --> S3
+    RS -.-> Prom
+    Prom --> Grafana
+```
 
 ### Architecture Principles
 
-- **Separation of Concerns**: Each service has a single, well-defined responsibility
-- **Event-Driven Communication**: Asynchronous processing for high throughput
-- **Multi-Stage Ranking**: Candidate generation → Feature engineering → Ranking → Post-processing
-- **Polyglot Persistence**: Right database for the right data pattern
-- **Horizontal Scalability**: Stateless services that scale independently
+- **Separation of concerns** — Each service has a single, well-defined responsibility (user, recommendation, search, consumer).
+- **Event-driven communication** — Clickstream events flow asynchronously via SQS to the consumer, then to MongoDB.
+- **Multi-stage ranking** — Candidate generation → Feature engineering → Ranking (LTR) → Post-processing → Cache.
+- **Polyglot persistence** — PostgreSQL (Supabase), MongoDB (events), Neo4j (graph), Redis (cache), Pinecone (vectors), S3 (models).
+- **Horizontal scalability** — Stateless services; training runs in separate pods orchestrated by Airflow.
+
+---
+
+## 🔀 End-to-end request flow
+
+### 1. Traffic flow: client → ingress → services
+
+Every user action (login, recommendations, search) goes through the React app to the Ingress, which routes by path to the right backend.
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#E8F5E9', 'primaryTextColor':'#1B5E20', 'lineColor':'#2E7D32' }}}%%
+sequenceDiagram
+    autonumber
+    participant U as 👤 User
+    participant R as ⚛️ React SPA
+    participant I as 🌐 Ingress
+    participant US as User Service
+    participant RS as Recommendation Service
+    participant SS as Search Service
+
+    U->>R: Open app / Login / Search / View feed
+    R->>I: HTTP (Bearer token)
+    alt /api/v1/user/*
+        I->>US: Forward
+        US->>US: Auth, Supabase, Neo4j, SQS
+        US-->>R: JSON
+    else /api/v1/recommend/*
+        I->>RS: Forward
+        RS->>RS: Cache / full pipeline
+        RS-->>R: Categories + books
+    else /api/v1/search
+        I->>SS: Forward
+        SS->>SS: Pinecone + Supabase
+        SS-->>R: Search results
+    end
+    R-->>U: Render UI
+```
+
+### 2. Recommendation path: from request to displayed rows
+
+When the user opens the homepage or refreshes recommendations, the following pipeline runs (on cache miss). The result is a set of **category rows** (e.g. “Content-Based”, “For You (LinUCB)”, “Top Picks”) that the frontend renders as horizontal carousels.
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#FFF3E0', 'primaryTextColor':'#E65100', 'secondaryColor':'#E3F2FD', 'tertiaryColor':'#F3E5F5' }}}%%
+flowchart TB
+    subgraph Request["1️⃣ Request"]
+        A[GET /recommend/combined]
+    end
+
+    subgraph Cache["2️⃣ Cache"]
+        B{Redis cache?}
+        A --> B
+    end
+
+    subgraph Candidates["3️⃣ Candidate generation"]
+        B -->|Miss| C[Content-Based]
+        B -->|Miss| D[ALS]
+        B -->|Miss| E[Graph]
+        B -->|Miss| F[SASRec]
+        B -->|Miss| G[Popularity]
+        C --> H[Merge candidates]
+        D --> H
+        E --> H
+        F --> H
+        G --> H
+    end
+
+    subgraph Rank["4️⃣ Rank & features"]
+        H --> I[LinUCB score]
+        I --> J[Feast 29 features]
+        J --> K[LTR XGBoost]
+        K --> L[Post-process diversity]
+    end
+
+    subgraph Store["5️⃣ Store & respond"]
+        L --> M[Cache in Redis]
+        M --> N[JSON response]
+        B -->|Hit| N
+    end
+
+    subgraph Display["6️⃣ Display"]
+        N --> O[React: category rows]
+        O --> P[User sees carousels]
+    end
+```
+
+### 3. Detailed recommendation flow (candidate generation → display)
+
+This diagram expands the **candidate generation → ranking → response → display** steps with the main data stores and outputs.
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#E8F5E9', 'secondaryColor':'#FCE4EC', 'tertiaryColor':'#F3E5F5' }}}%%
+flowchart TB
+    Start([User requests recommendations]) --> CheckCache{Check Redis<br/>cache}
+    CheckCache -->|Hit| AddTrending[Add Trending Now from Redis]
+    AddTrending --> Return[Return JSON to frontend]
+    CheckCache -->|Miss| NewUser{New user?}
+    NewUser -->|Yes| CBOnly[Content-Based + Trending only]
+    CBOnly --> CacheStore[Store in Redis]
+    CacheStore --> Return
+    NewUser -->|No| Stage1[Stage 1: Candidate generation]
+    Stage1 --> C1[Pinecone: content-based]
+    Stage1 --> C2[S3: ALS factors]
+    Stage1 --> C3[Neo4j: graph]
+    Stage1 --> C4[MongoDB: SASRec session]
+    Stage1 --> C5[Redis: popularity]
+    C1 --> Merge[Merge & dedupe]
+    C2 --> Merge
+    C3 --> Merge
+    C4 --> Merge
+    C5 --> Merge
+    Merge --> LinUCB[LinUCB rank candidates]
+    LinUCB --> Feast[Feast: 29 features]
+    Feast --> LTR[XGBoost LTR: Top Picks]
+    LTR --> PostProc[Diversity post-process]
+    PostProc --> FetchBooks[Fetch book metadata Supabase]
+    FetchBooks --> Build[Build category payload]
+    Build --> CacheStore
+    Return --> Frontend[React: render rows]
+    Frontend --> User([User sees recommendations])
+
+    style Start fill:#C8E6C9
+    style Return fill:#C8E6C9
+    style User fill:#C8E6C9
+    style Stage1 fill:#BBDEFB
+    style Merge fill:#E1BEE7
+    style LTR fill:#FFE0B2
+```
 
 ---
 
@@ -204,9 +446,9 @@ graph TB
 ### 📊 Data Ingestion Service
 Real-time event streaming pipeline that captures user interactions and distributes them across multiple databases. Processes 15+ interaction types including clicks, views, reads, ratings, bookmarks, and social activities. Ensures data quality through validation and anomaly detection.
 
-**Key Features:** Event collection with sub-second latency, Kafka streaming with exactly-once semantics, multi-database routing, schema validation.
+**Key Features:** Event collection with sub-second latency, SQS queue with async consumer, multi-database routing, schema validation. (Kafka can replace SQS for exactly-once semantics or higher throughput.)
 
-**Tech Stack:** Apache Kafka, FastAPI, Pydantic, MongoDB
+**Tech Stack:** AWS SQS, FastAPI, Pydantic, MongoDB
 
 #### Data Flow Architecture
 
@@ -215,7 +457,7 @@ sequenceDiagram
     participant User
     participant Frontend
     participant API
-    participant Kafka
+    participant SQS as AWS SQS
     participant Consumer
     participant MongoDB
     participant Redis
@@ -223,13 +465,13 @@ sequenceDiagram
     
     User->>Frontend: Interacts (click, read, etc.)
     Frontend->>API: POST /api/events
-    API->>Kafka: Publish Event
-    Kafka->>Consumer: Consume Event
+    API->>SQS: Send Message
+    SQS->>Consumer: Receive & Process
     Consumer->>Consumer: Validate & Transform
     Consumer->>MongoDB: Store Event Log
     Consumer->>Redis: Update Counters
     Consumer->>Neo4j: Update Graph
-    Consumer->>API: Acknowledge
+    Consumer->>SQS: Delete Message
 ```
 
 ---
@@ -368,6 +610,8 @@ graph LR
 ## 🤖 Recommendation Pipeline
 
 ### End-to-End Flow Diagram
+
+*This mirrors the [Recommendation path](#2-recommendation-path-from-request-to-displayed-rows) described in the request flow section.*
 
 ```mermaid
 flowchart TD
@@ -552,7 +796,7 @@ sequenceDiagram
     
     User->>Frontend: Interact with Book
     Frontend->>DataService: POST /api/events
-    DataService->>DataService: Stream to Kafka
+    DataService->>DataService: Send to SQS
     
     Note over TrainingService: Daily Training Jobs
     TrainingService->>TrainingService: Train Models
@@ -571,7 +815,7 @@ sequenceDiagram
 - **Classical ML:** Scikit-learn, Implicit (ALS)
 - **Distributed Training:** Ray (distributed computing)
 - **Learning-to-Rank:** XGBoost (LambdaRank)
-- **Event Streaming:** Apache Kafka
+- **Event Streaming:** AWS SQS (Kafka can replace for higher scale)
 - **Orchestration:** Apache Airflow
 - **Feature Store:** Feast
 - **Graph Processing:** Node2Vec, NetworkX
@@ -625,121 +869,18 @@ sequenceDiagram
 - Trending and popular book discovery
 - Social discovery through friend recommendations
 
-### Gutendex API Integration
-- Access to 70,000+ Project Gutenberg books
-- Rich metadata: authors, subjects, languages
-- Direct EPUB and PDF download links
-- Cover images and book details
+### Book catalog (Gutendex → Supabase)
+- Books are scraped from [Gutendex](https://gutendex.com/) (Project Gutenberg index) and stored in Supabase via the **book_data_importer**
+- Supabase is the source of truth for book metadata (title, authors, subjects, languages, download links)
+- The importer fetches by genre and upserts into the Supabase `books` table; embeddings and graph data are built from there (Pinecone, Neo4j, S3)
 
 ---
 
 ## 🚀 Getting Started
 
-### Prerequisites
+All setup steps (prerequisites, clone, Kind cluster, secrets, deploying Redis/Airflow/services, building training images, Airflow DAGs, Feast) are in **[SETUP.md](SETUP.md)**. Do not duplicate them here.
 
-- Docker & Docker Desktop
-- Kubernetes cluster (Kind recommended)
-- Python 3.10+
-- Node.js 18+ (for frontend)
-- kubectl and Helm 3.x
-
-### Quick Start
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/RAAHUL-tech/BibliophileAI.git
-   cd BibliophileAI
-   ```
-
-2. **Set up Kubernetes cluster (Kind)**
-   ```bash
-   # Create Kind cluster with 1 control-plane + 3 worker nodes
-   kind create cluster --config kind-cluster-config.yaml
-   
-   # Verify cluster
-   kubectl get nodes
-   ```
-
-3. **Deploy infrastructure services**
-   ```bash
-   # Deploy Redis (for caching and popularity scores)
-   kubectl apply -f kubernetes/redis.yaml
-   
-   # Deploy Redis for Feast feature store
-   kubectl apply -f kubernetes/redis-feast.yaml
-   
-   # Deploy Airflow (with Helm)
-   helm repo add apache-airflow https://airflow.apache.org
-   helm install airflow apache-airflow/airflow -f kubernetes/airflow-values.yaml
-   
-   # Wait for Airflow to be ready
-   kubectl wait --for=condition=ready pod -l component=webserver -n default --timeout=300s
-   ```
-
-4. **Deploy application services**
-   ```bash
-   # Deploy user service
-   kubectl apply -f kubernetes/user-auth-deployment.yaml
-   
-   # Deploy recommendation service
-   kubectl apply -f kubernetes/recommendation-deployment.yaml
-   
-   # Deploy clickstream consumer
-   kubectl apply -f kubernetes/consumer-deployment.yaml
-   ```
-
-5. **Configure environment variables in Airflow**
-   - Access Airflow UI: `kubectl port-forward svc/airflow-webserver 8080:8080`
-   - Set Airflow Variables:
-     - `MONGO_URI`: Your MongoDB connection string
-     - `S3_URI`: Your S3 bucket URI
-     - `AWS_ACCESS_KEY_ID`: AWS credentials
-     - `AWS_SECRET_ACCESS_KEY`: AWS credentials
-     - `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`: Neo4j credentials
-     - `REDIS_URL`: Redis connection URL
-
-6. **Build and push Docker images for training**
-   ```bash
-   # Build training images (all use Ray framework)
-   docker build -t rahulkrish28/als-train:latest src/model_training_service/als_train/
-   docker build -t rahulkrish28/graph-train:latest src/model_training_service/graph_train/
-   docker build -t rahulkrish28/sasrec-train:latest src/model_training_service/sasrec_train/
-   docker build -t rahulkrish28/popularity-train:latest src/model_training_service/popularity_train/
-   docker build -t rahulkrish28/linucb-train:latest src/model_training_service/linucb_train/
-   
-   # Push to your registry (replace with your registry)
-   docker push rahulkrish28/als-train:latest
-   docker push rahulkrish28/graph-train:latest
-   docker push rahulkrish28/sasrec-train:latest
-   docker push rahulkrish28/popularity-train:latest
-   docker push rahulkrish28/linucb-train:latest
-   ```
-
-7. **Trigger training DAGs in Airflow**
-   - Access Airflow UI at `http://localhost:8080`
-   - Trigger DAGs:
-     - `als_cf_training` - Trains ALS collaborative filtering model
-     - `graph_analytics_training` - Computes Node2Vec embeddings and PageRank
-     - `sasrec_training` - Trains SASRec sequential model
-     - `popularity_training` - Computes time-decayed popularity scores
-     - `linucb_training` - Trains contextual bandit model
-
-8. **Set up Feast feature store**
-   ```bash
-   cd feast_feature_store
-   pip install -r requirements.txt
-   feast apply  # Apply feature definitions
-   ```
-
-### Development Setup
-
-See individual service directories for development setup instructions:
-- `src/user_service/` - User authentication service
-- `src/recommendation_service/` - ML recommendation engine (6 algorithms + XGBoost ranking)
-- `src/clickstream_consumer/` - Event streaming consumer (Kafka)
-- `src/model_training_service/` - Model training services (Ray-based)
-- `feast_feature_store/` - Feast feature store configuration
-- `frontend/bibliophile-ai-frontend/` - React frontend
+For per-service development details, see the README in each directory: `src/user_service/`, `src/recommendation_service/`, `src/clickstream_consumer/` (SQS consumer), `src/model_training_service/`, `feast_feature_store/`, `frontend/bibliophile-ai-frontend/`.
 
 ---
 
@@ -825,7 +966,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **Gutendex API** - Free access to Project Gutenberg's collection
+- **Gutendex** - Project Gutenberg index; books scraped and stored in Supabase via book_data_importer
 - **PyTorch Ecosystem** - Deep learning framework and tools
 - **Neo4j** - Graph database for social recommendations
 - **Pinecone** - Vector database for ML applications

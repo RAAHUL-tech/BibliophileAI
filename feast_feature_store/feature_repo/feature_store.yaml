@@ -1,3 +1,4 @@
+# Feast feature store config: project name, S3 registry, Redis online store, file offline store.
 project: bibliophileai
 provider: local
 

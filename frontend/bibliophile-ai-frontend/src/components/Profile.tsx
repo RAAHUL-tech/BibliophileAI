@@ -1,3 +1,6 @@
+/**
+ * Profile overlay: user info, preferences (genre/author), bookmarks carousel, and edit actions.
+ */
 import { useEffect, useState, useRef } from "react";
 import BookView from "./BookView";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";

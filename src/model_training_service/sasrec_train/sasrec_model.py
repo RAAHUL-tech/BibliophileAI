@@ -1,5 +1,10 @@
+"""
+SASRec PyTorch model (transformer encoder over item embeddings) for session-based
+recommendation; shared by sasrec_train and the recommendation service inference.
+"""
 import torch
 import torch.nn as nn
+
 
 class SASRec(nn.Module):
     def __init__(

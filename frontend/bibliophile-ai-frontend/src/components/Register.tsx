@@ -1,3 +1,6 @@
+/**
+ * Registration form: username, email, password; calls user service register and triggers onboarding on success.
+ */
 import { useState, type FormEvent } from 'react'
 import './SharedStyles.css'
 

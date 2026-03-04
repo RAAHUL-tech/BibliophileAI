@@ -2,6 +2,9 @@
 
 Monitoring uses the **Prometheus Operator** (kube-prometheus-stack) for cluster- and node-level metrics, and a **metrics sidecar** in each app pod to expose `/metrics` without adding metrics code to the main application.
 
+- **grafana-dashboards/**: Predefined dashboard JSON (BibliophileAI app + cluster metrics); see [grafana-dashboards/README.md](grafana-dashboards/README.md).
+- **servicemonitors/**: ServiceMonitor manifests so Prometheus scrapes app sidecars; see [servicemonitors/README.md](servicemonitors/README.md).
+
 ## Components
 
 - **Prometheus** – scrapes ServiceMonitors (app sidecars + node-exporter + kube-state-metrics), stores metrics.

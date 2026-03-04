@@ -1,3 +1,8 @@
+"""
+User/auth service: FastAPI app for registration, login (password + Google), profile,
+preferences, bookmarks, reviews, sessions, and clickstream event emission.
+Uses Supabase for user/store data and Neo4j for social graph; produces events to SQS.
+"""
 from fastapi import FastAPI, Depends, HTTPException, Security, Request, Response, Query
 import requests
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer

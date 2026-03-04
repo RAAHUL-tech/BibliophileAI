@@ -1,3 +1,7 @@
+"""
+Retrieve features from Feast online store (Redis) for real-time inference by
+user_book entity keys; used by LTR ranking in the recommendation service.
+"""
 from feast import FeatureStore
 import pandas as pd
 from datetime import datetime

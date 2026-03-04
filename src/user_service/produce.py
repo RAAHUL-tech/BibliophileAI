@@ -1,4 +1,7 @@
-# Clickstream producer using AWS SQS FIFO queue
+"""
+Clickstream producer: sends user events (e.g. page_turn, bookmark) to an AWS SQS FIFO
+queue for the clickstream consumer to persist and process.
+"""
 import os
 import boto3
 import json
