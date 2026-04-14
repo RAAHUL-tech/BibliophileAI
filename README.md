@@ -206,12 +206,6 @@ See [SETUP.md](SETUP.md) for the full step-by-step guide. The short version:
 
 ---
 
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). PRs welcome — please open an issue first for significant changes.
-
----
-
 ## License
 
 [MIT](LICENSE)
