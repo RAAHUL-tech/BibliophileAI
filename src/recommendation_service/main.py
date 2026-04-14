@@ -33,7 +33,14 @@ from linucb_inference import linucb_ranker
 from feature_engineering.feature_service import feature_service, get_feast_repo_path
 from ltr_ranking import rank_candidates as ltr_rank_candidates
 import ltr_postprocess
-from app_metrics import record_request, record_error, record_cache_hit, record_cache_miss, record_recommendation_duration_seconds, start_metrics_writer
+from app_metrics import (
+    record_request, record_error,
+    record_cache_hit, record_cache_miss,
+    record_impression,
+    record_recommendation_duration_seconds,
+    record_algorithm_candidates,
+    start_metrics_writer,
+)
 
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -460,6 +467,7 @@ async def recommend_combined(
     cached = get_cached_recommendations(user_id)
     if cached is not None:
         record_cache_hit()
+        record_impression()
         logger.info(f"Serving combined recommendations from cache for user {user_id}")
         trending = await _get_trending_now_category(top_k=50)
         categories_list = list(cached.get("categories") or [])
@@ -531,6 +539,11 @@ async def recommend_combined(
     
     print(f"Got {len(cb_book_ids)} CB, {len(als_book_ids)} ALS, {len(graph_book_ids)} Graph, "
           f"{len(session_book_ids)} Session, {len(pop_book_ids)} Popularity books")
+    record_algorithm_candidates("cbr", len(cb_book_ids))
+    record_algorithm_candidates("als", len(als_book_ids))
+    record_algorithm_candidates("graph", len(graph_book_ids))
+    record_algorithm_candidates("session", len(session_book_ids))
+    record_algorithm_candidates("popularity", len(pop_book_ids))
 
     # LinUCB: score all candidates with contextual bandit (online model per user)
     all_candidates = list(set(
@@ -539,6 +552,7 @@ async def recommend_combined(
     ))
     linucb_book_ids, linucb_scores = linucb_ranker.get_linucb_ranked(all_candidates, user_id)
     linucb_ranker.set_shown_books(user_id, linucb_book_ids)
+    record_algorithm_candidates("linucb", len(linucb_book_ids))
 
     # Build combined_scores_map for feature engineering (Feast integration)
     combined_scores_map.clear()
@@ -699,7 +713,24 @@ async def recommend_combined(
     # Don't store Trending Now per user; it always comes from global Redis (popularity:trending:*)
     to_cache = {"categories": [c for c in category_recommendations if c.get("category") != "Trending Now"]}
     set_cached_recommendations(user_id, to_cache)
-    record_recommendation_duration_seconds(time.perf_counter() - start_time)
+
+    # Write a global position map {book_id: rank} for engagement-based NDCG tracking.
+    # The clickstream consumer reads this to attribute engagement events to recommendation positions.
+    try:
+        all_ranked_ids = ltr_book_ids if ltr_book_ids else (linucb_book_ids or cb_book_ids)
+        if all_ranked_ids:
+            position_map = {bid: rank + 1 for rank, bid in enumerate(all_ranked_ids[:50])}
+            redis_client.setex(
+                f"positions:{user_id}",
+                7 * 24 * 3600,  # 7-day TTL
+                json.dumps(position_map),
+            )
+    except Exception as _pos_err:
+        logger.debug("Position map write failed (non-fatal): %s", _pos_err)
+
+    duration = time.perf_counter() - start_time
+    record_recommendation_duration_seconds(duration)
+    record_impression()
     print(f"Returning {len(category_recommendations)} categories with recommendations")
     return payload
 
