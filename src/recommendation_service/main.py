@@ -714,15 +714,33 @@ async def recommend_combined(
     to_cache = {"categories": [c for c in category_recommendations if c.get("category") != "Trending Now"]}
     set_cached_recommendations(user_id, to_cache)
 
-    # Write a global position map {book_id: rank} for engagement-based NDCG tracking.
-    # The clickstream consumer reads this to attribute engagement events to recommendation positions.
+    # Write a position map {book_id: rank} covering ALL served books so that any
+    # engagement event (from any category row) can be attributed to a rank position.
+    # LTR top picks get the best positions (1-N); other categories follow in order.
     try:
-        all_ranked_ids = ltr_book_ids if ltr_book_ids else (linucb_book_ids or cb_book_ids)
-        if all_ranked_ids:
-            position_map = {bid: rank + 1 for rank, bid in enumerate(all_ranked_ids[:50])}
+        ordered: list = []
+        seen: set = set()
+        priority_order = [
+            "Top Picks", "For You (LinUCB)", "Content-Based Recommendations",
+            "Collaborative Filtering", "Social Recommendations",
+            "Session-Based", "Continue Reading", "Trending Now",
+        ]
+        for cat_name in priority_order:
+            for bid in (categories.get(cat_name) or {}).get("book_ids", []):
+                if bid and bid not in seen:
+                    ordered.append(bid)
+                    seen.add(bid)
+        # Catch any remaining categories not in the priority list
+        for cat_data in categories.values():
+            for bid in cat_data.get("book_ids", []):
+                if bid and bid not in seen:
+                    ordered.append(bid)
+                    seen.add(bid)
+        if ordered:
+            position_map = {bid: rank + 1 for rank, bid in enumerate(ordered[:200])}
             redis_client.setex(
                 f"positions:{user_id}",
-                7 * 24 * 3600,  # 7-day TTL
+                7 * 24 * 3600,
                 json.dumps(position_map),
             )
     except Exception as _pos_err:

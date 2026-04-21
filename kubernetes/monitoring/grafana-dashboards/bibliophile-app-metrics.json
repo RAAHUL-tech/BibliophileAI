@@ -317,7 +317,7 @@
       "id": 111,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "(app_events_processed_total{event_type=\"read\"} + app_events_processed_total{event_type=\"bookmark_add\"} + app_events_processed_total{event_type=\"review\"}) / clamp_min(recommendation_impressions_total, 1)", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "(sum(app_events_processed_total{event_type=\"read\"}) + sum(app_events_processed_total{event_type=\"bookmark_add\"}) + sum(app_events_processed_total{event_type=\"review\"})) / clamp_min(sum(recommendation_impressions_total), 1)", "refId": "A" }],
       "title": "Engagement rate (CTR proxy)",
       "type": "stat"
     },
@@ -332,7 +332,7 @@
       "id": 112,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "app_events_processed_total{event_type=\"bookmark_add\"} / clamp_min(recommendation_impressions_total, 1)", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(app_events_processed_total{event_type=\"bookmark_add\"}) / clamp_min(sum(recommendation_impressions_total), 1)", "refId": "A" }],
       "title": "Bookmark rate",
       "type": "stat"
     },
@@ -347,7 +347,7 @@
       "id": 113,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "app_events_processed_total{event_type=\"review\"} / clamp_min(recommendation_impressions_total, 1)", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(app_events_processed_total{event_type=\"review\"}) / clamp_min(sum(recommendation_impressions_total), 1)", "refId": "A" }],
       "title": "Review rate",
       "type": "stat"
     },
