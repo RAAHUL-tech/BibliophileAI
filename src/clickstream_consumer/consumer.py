@@ -43,18 +43,29 @@ mongo = get_mongo_client()
 collection = mongo['click_stream']['events']
 
 # Redis: optional — used to look up recommendation positions for NDCG tracking.
-# Fails silently if REDIS_URL is not set or Redis is unreachable.
+# Connection is lazy: attempted on first use and retried after failures so a
+# startup race (consumer starts before Redis is ready) doesn't permanently disable it.
+import redis as _redis_lib
+
+_REDIS_URL = os.environ.get("REDIS_URL")
 _redis_client = None
-try:
-    import redis as _redis_lib
-    _redis_url = os.environ.get("REDIS_URL")
-    if _redis_url:
-        _redis_client = _redis_lib.from_url(_redis_url, socket_connect_timeout=2, socket_timeout=2)
-        _redis_client.ping()
+
+
+def _get_redis():
+    """Return a live Redis client, creating or reconnecting as needed."""
+    global _redis_client
+    if _redis_client is not None:
+        return _redis_client
+    if not _REDIS_URL:
+        return None
+    try:
+        client = _redis_lib.from_url(_REDIS_URL, socket_connect_timeout=2, socket_timeout=2)
+        client.ping()
+        _redis_client = client
         logging.info("Connected to Redis for position tracking")
-except Exception as _redis_err:
-    logging.warning(f"Redis not available for position tracking (non-fatal): {_redis_err}")
-    _redis_client = None
+    except Exception as e:
+        logging.debug("Redis not yet reachable (will retry): %s", e)
+    return _redis_client
 
 # Event types that indicate the user engaged with a recommended book
 _ENGAGEMENT_EVENT_TYPES = {"read", "page_turn", "bookmark_add", "review"}
@@ -65,15 +76,20 @@ def _lookup_recommendation_position(user_id: str, book_id: str) -> Optional[int]
     Return the rank (1-indexed) of `book_id` in the user's last recommendation batch,
     or None if the position map is not in Redis or Redis is unavailable.
     """
-    if _redis_client is None or not user_id or not book_id:
+    if not user_id or not book_id:
+        return None
+    client = _get_redis()
+    if client is None:
         return None
     try:
-        raw = _redis_client.get(f"positions:{user_id}")
+        raw = client.get(f"positions:{user_id}")
         if not raw:
             return None
         position_map = json.loads(raw)
         return position_map.get(str(book_id))
     except Exception:
+        global _redis_client
+        _redis_client = None  # force reconnect on next call
         return None
 
 
