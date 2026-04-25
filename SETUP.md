@@ -1,40 +1,36 @@
-# BibliophileAI – Setup Guide
-
-Step-by-step guide to run the full stack locally: cluster, secrets, services, ingress, frontend, and optionally Airflow and monitoring.
+# BibliophileAI — Setup Guide
 
 ---
 
-## 1. Prerequisites
+## Prerequisites
 
-| Tool | Purpose | Check |
+| Tool | Version | Check |
 |------|---------|-------|
-| **Docker** | Build and run containers | `docker --version` |
-| **kubectl** | Kubernetes CLI | `kubectl version --client` |
-| **Kind** | Local Kubernetes cluster | `kind version` |
-| **Helm 3** | Install charts (Ingress, Airflow, Prometheus) | `helm version` |
-| **Node.js 18+** | Frontend (Vite + React) | `node -v` |
-| **Python 3.9+** | Data import scripts | `python3 --version` |
+| Docker | Latest | `docker --version` |
+| kubectl | Any | `kubectl version --client` |
+| Kind | Any | `kind version` |
+| Helm | 3+ | `helm version` |
+| Node.js | 18+ | `node -v` |
+| Python | 3.9+ | `python3 --version` |
 
 ---
 
-## 2. External Services
+## External Services
 
-Create accounts and note credentials for each service — you'll add them to Kubernetes Secrets.
+Create accounts and note credentials before starting. You'll encode them as Kubernetes Secrets.
 
 | Service | What you need |
 |---------|--------------|
-| **Supabase** | Project URL + service_role key |
-| **MongoDB Atlas** | Connection string (`mongodb+srv://...`) |
-| **Neo4j Aura** | URI, username, password |
-| **Pinecone** | API key; create two indices: `user-preferences-index`, `book-metadata-index` |
-| **AWS** | Access Key ID + Secret Access Key; create an S3 bucket and an SQS FIFO queue |
-| **Google Cloud** | OAuth 2.0 Web client ID (for "Login with Google") |
-
-Use the same AWS region (e.g. `us-east-2`) for S3 and SQS.
+| [Supabase](https://supabase.com) | Project URL + service_role key |
+| [MongoDB Atlas](https://www.mongodb.com/atlas) | Connection string (`mongodb+srv://...`) |
+| [Neo4j Aura](https://neo4j.com/cloud/aura) | URI, username, password |
+| [Pinecone](https://pinecone.io) | API key · create two indices: `user-preferences-index`, `book-metadata-index` |
+| [AWS](https://aws.amazon.com) | Access Key ID + Secret · S3 bucket · SQS FIFO queue (same region for both) |
+| [Google Cloud](https://console.cloud.google.com) | OAuth 2.0 Web client ID |
 
 ---
 
-## 3. Clone and create the cluster
+## 1 · Clone and create the cluster
 
 ```bash
 git clone https://github.com/RAAHUL-tech/BibliophileAI.git
@@ -46,226 +42,186 @@ kubectl cluster-info
 
 ---
 
-## 4. Kubernetes Secrets
+## 2 · Secrets
 
 All services read credentials from a Secret named `secret` in the `default` namespace.
 
-**Do not commit real credentials.** Copy `kubernetes/secrets.yaml` to `kubernetes/my-secrets.yaml`, fill in base64-encoded values, and apply it.
-
-Encode a value:
+Encode each value:
 ```bash
 echo -n "your-value" | base64
 ```
 
-Secret keys the services expect:
-
-| Key | Used by |
-|-----|--------|
-| `SECRET_KEY` | JWT signing (32+ chars) |
-| `SUPABASE_URL` | All services + importers |
-| `SUPABASE_KEY` | All services + importers |
-| `GOOGLE_CLIENT_ID` | User service (OAuth) |
-| `PINECONE_API_KEY` | Search, Recommendation, User |
-| `AWS_ACCESS_KEY_ID` | All S3/SQS and training |
-| `AWS_SECRET_ACCESS_KEY` | All S3/SQS and training |
-| `AWS_DEFAULT_REGION` | Consumer, training |
-| `SQS_QUEUE_URL` | User (producer) + Consumer |
-| `MONGO_URI` | Recommendation, Consumer, Training |
-| `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` | User, Recommendation, Graph training |
-| `S3_URI` | Recommendation, Training |
-| `REDIS_URL` | Recommendation + Popularity training |
-| `FEAST_REDIS_URL` | Recommendation (Feast online store) |
-| `ALS_S3_PREFIX`, `GRAPH_S3_PREFIX`, `SASREC_S3_PREFIX`, `POPULARITY_S3_PREFIX`, `LTR_S3_PREFIX`, `LINUCB_S3_PREFIX` | Training + Recommendation |
-| `RECOMMENDATION_SERVICE_URL` | User service (internal refresh) |
-| `INTERNAL_API_KEY` | Recommendation internal endpoints |
-
-Secret manifest structure:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: secret
-  namespace: default
-type: Opaque
-data:
-  SECRET_KEY: <base64>
-  SUPABASE_URL: <base64>
-  SUPABASE_KEY: <base64>
-  GOOGLE_CLIENT_ID: <base64>
-  PINECONE_API_KEY: <base64>
-  AWS_ACCESS_KEY_ID: <base64>
-  AWS_SECRET_ACCESS_KEY: <base64>
-  AWS_DEFAULT_REGION: <base64>
-  SQS_QUEUE_URL: <base64>
-  MONGO_URI: <base64>
-  NEO4J_URI: <base64>
-  NEO4J_USER: <base64>
-  NEO4J_PASSWORD: <base64>
-  S3_URI: <base64>
-  REDIS_URL: <base64>
-  FEAST_REDIS_URL: <base64>
-  ALS_S3_PREFIX: <base64>
-  GRAPH_S3_PREFIX: <base64>
-  SASREC_S3_PREFIX: <base64>
-  POPULARITY_S3_PREFIX: <base64>
-  LTR_S3_PREFIX: <base64>
-  LINUCB_S3_PREFIX: <base64>
-  RECOMMENDATION_SERVICE_URL: <base64>
-  INTERNAL_API_KEY: <base64>
-```
+Copy `kubernetes/secrets.yaml`, fill in the base64 values, and apply:
 
 ```bash
 kubectl apply -f kubernetes/my-secrets.yaml
 ```
 
+**Required keys:**
+
+| Key | Used by |
+|-----|--------|
+| `SECRET_KEY` | JWT signing (32+ chars) |
+| `SUPABASE_URL`, `SUPABASE_KEY` | All services |
+| `GOOGLE_CLIENT_ID` | User service (OAuth) |
+| `PINECONE_API_KEY` | Search, Recommendation, User |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION` | All S3/SQS |
+| `SQS_QUEUE_URL` | User service + Consumer |
+| `MONGO_URI` | Recommendation, Consumer, Training |
+| `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` | User, Recommendation, Graph training |
+| `S3_URI` | Recommendation, Training |
+| `REDIS_URL` | Recommendation, Consumer, Popularity training |
+| `FEAST_REDIS_URL` | Recommendation (Feast online store) |
+| `ALS_S3_PREFIX`, `GRAPH_S3_PREFIX`, `SASREC_S3_PREFIX`, `POPULARITY_S3_PREFIX`, `LTR_S3_PREFIX`, `LINUCB_S3_PREFIX` | Training + Recommendation |
+| `RECOMMENDATION_SERVICE_URL` | User service (internal refresh) |
+| `INTERNAL_API_KEY` | Recommendation internal endpoints |
+
 ---
 
-## 5. Deploy Redis
+## 3 · Deploy Redis
 
 ```bash
 kubectl apply -f kubernetes/redis.yaml          # app cache
 kubectl apply -f kubernetes/redis-feast.yaml    # Feast online store
+
 kubectl get pods -l app=redis
 kubectl get pods -l app=feast-redis
 ```
 
-Wait until both pods are `Running`.
+Wait until both are `Running`.
 
 ---
 
-## 6. Build and load application images
+## 4 · Build and load images
 
-For Kind, images must be loaded into the cluster after building.
-
+Services that need **root** build context (Dockerfile copies from multiple repo dirs):
 ```bash
-# Metrics sidecar (used by every app pod)
-docker build -t rahulkrish28/metrics-sidecar:latest src/metrics_sidecar
-kind load docker-image rahulkrish28/metrics-sidecar:latest
-
-# Services
-docker build -t rahulkrish28/user-service:latest src/user_service
-kind load docker-image rahulkrish28/user-service:latest
-
-docker build -t rahulkrish28/search-service:latest src/search_service
-kind load docker-image rahulkrish28/search-service:latest
-
-docker build -t rahulkrish28/recommendation-service:latest src/recommendation_service
-kind load docker-image rahulkrish28/recommendation-service:latest
-
-docker build -t rahulkrish28/clickstream-consumer:latest src/clickstream_consumer
-kind load docker-image rahulkrish28/clickstream-consumer:latest
+docker build -f src/recommendation_service/Dockerfile -t rahulkrish28/recommendation-service:latest .
+docker build -f src/model_training_service/ltr_train/Dockerfile -t rahulkrish28/ltr-train:latest .
 ```
 
-For a remote cluster, push to a registry instead of `kind load docker-image`.
+Services that build from their own directory:
+```bash
+docker build -t rahulkrish28/user-service:latest          src/user_service
+docker build -t rahulkrish28/search-service:latest        src/search_service
+docker build -t rahulkrish28/clickstream-consumer:latest  src/clickstream_consumer
+docker build -t rahulkrish28/metrics-sidecar:latest       src/metrics_sidecar
+```
+
+Load into Kind (append `--name <cluster-name>` if your cluster isn't named `kind`):
+```bash
+for img in recommendation-service user-service search-service clickstream-consumer metrics-sidecar; do
+  kind load docker-image rahulkrish28/$img:latest --name bibliophileai-cluster
+done
+```
 
 ---
 
-## 7. Install Ingress and deploy services
+## 5 · Ingress and application services
 
 ```bash
-cd kubernetes
-./install-ingress.sh    # installs NGINX Ingress controller + BibliophileAI routes
-cd ..
+cd kubernetes && ./install-ingress.sh && cd ..
 
 kubectl apply -f kubernetes/user-auth-deployment.yaml
 kubectl apply -f kubernetes/search-deployment.yaml
 kubectl apply -f kubernetes/recommendation-deployment.yaml
 kubectl apply -f kubernetes/consumer-deployment.yaml
 
-kubectl get pods    # wait until all are Running and Ready
+kubectl get pods    # wait until all Running and Ready
 ```
 
-If a pod fails: `kubectl describe pod <name>` and `kubectl logs <pod> -c <container>`.
+Apply the HPA for the recommendation service:
+```bash
+kubectl apply -f kubernetes/recommendation-hpa.yaml
+```
 
 ---
 
-## 8. Expose the API
+## 6 · Expose the API
 
 ```bash
 kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8080:80
 ```
 
-Leave this running. The API is now available at `http://localhost:8080`.
+Leave this running. The API is now reachable at `http://localhost:8080`.
 
 ---
 
-## 9. Frontend
+## 7 · Frontend
 
 ```bash
 cd frontend/bibliophile-ai-frontend
 npm install
 ```
 
-Optionally set your Google OAuth client ID:
+Optional — Google OAuth:
 ```bash
-# .env.local
-VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+echo "VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com" > .env.local
 ```
 
 ```bash
 npm run dev    # http://localhost:5173
 ```
 
-Open http://localhost:5173 and register a user. Complete onboarding (genres, authors, demographics). The first recommendation load may take 1–2 minutes on cache miss; subsequent loads are fast from Redis.
+Register a user, complete onboarding. The first recommendation load triggers the full pipeline (1–2 min on cache miss); all subsequent loads are fast from Redis.
 
 ---
 
-## 10. (Optional) Monitoring
+## 8 · Monitoring (optional)
 
 ```bash
-cd kubernetes/monitoring
-./install-monitoring.sh
+cd kubernetes/monitoring && ./install-monitoring.sh && cd ../..
+
+# Apply custom alerting rules
+kubectl apply -f kubernetes/monitoring/alerting-rules.yaml
+
+# Grafana
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+# → http://localhost:3000  (admin / admin)
+
+# Prometheus
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
+# → http://localhost:9090/alerts
 ```
 
-- **Grafana:** `kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80` → http://localhost:3000 (default: `admin` / `admin`)
-- **Prometheus:** `kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090` → http://localhost:9090
+The Grafana dashboard is provisioned automatically via ConfigMap. It includes P50/P95/P99 latency, cache hit rate, NDCG@10, engagement rates, algorithm candidate counts, and cluster health.
 
 ---
 
-## 11. (Optional) Airflow and training jobs
-
-### Install Airflow
+## 9 · Airflow and model training (optional)
 
 ```bash
-cd kubernetes
-./install-airflow.sh
+cd kubernetes && ./install-airflow.sh && cd ..
 ```
 
-Then in the Airflow UI (Admin → Variables), add the same credentials used in the Kubernetes Secret:
-`MONGO_URI`, `S3_URI`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `NEO4J_*`, `REDIS_URL`, and the model S3 prefixes.
-
-### Build and load training images
-
+Build and load training images:
 ```bash
-docker build -t rahulkrish28/als-train:latest src/model_training_service/als_train
-docker build -t rahulkrish28/graph-train:latest src/model_training_service/graph_train
-docker build -t rahulkrish28/ltr-train:latest src/model_training_service/ltr_train
+docker build -t rahulkrish28/als-train:latest        src/model_training_service/als_train
+docker build -t rahulkrish28/graph-train:latest      src/model_training_service/graph_train
+docker build -t rahulkrish28/sasrec-train:latest     src/model_training_service/sasrec_train
 docker build -t rahulkrish28/popularity-train:latest src/model_training_service/popularity_train
-docker build -t rahulkrish28/sasrec-train:latest src/model_training_service/sasrec_train
+# ltr-train was already built with root context in step 4
 
-kind load docker-image rahulkrish28/als-train:latest
-kind load docker-image rahulkrish28/graph-train:latest
-kind load docker-image rahulkrish28/ltr-train:latest
-kind load docker-image rahulkrish28/popularity-train:latest
-kind load docker-image rahulkrish28/sasrec-train:latest
+for img in als-train graph-train sasrec-train popularity-train ltr-train; do
+  kind load docker-image rahulkrish28/$img:latest --name bibliophileai-cluster
+done
 ```
 
-Expose the Airflow UI:
+Expose the Airflow UI and set Variables (same credentials as Kubernetes Secrets):
 ```bash
-kubectl port-forward svc/airflow-api-server 8082:8080 --namespace default
+kubectl port-forward svc/airflow-api-server 8082:8080
+# → http://localhost:8082  — Admin → Variables → add MONGO_URI, S3_URI, AWS credentials, model prefixes
 ```
 
-Open http://localhost:8082, unpause the DAGs, and trigger runs.
+Unpause the 5 DAGs and trigger a run. Each training job saves its model to S3 and — for LTR — writes offline eval metrics (`eval_metrics_latest.json`) alongside the model.
 
 ---
 
-## 12. (Optional) Populate book data
+## 10 · Populate book data (optional)
 
-If Supabase and Pinecone/Neo4j are empty, seed them with the import scripts.
+Required if Supabase / Pinecone / Neo4j are empty.
 
 ```bash
-# Set credentials in your shell or a .env file
 export SUPABASE_URL="https://xxxx.supabase.co"
 export SUPABASE_SERVICE_ROLE_KEY="..."
 export PINECONE_API_KEY="..."
@@ -276,11 +232,10 @@ export AWS_ACCESS_KEY_ID="..."
 export AWS_SECRET_ACCESS_KEY="..."
 export AWS_S3_BUCKET="your-bucket"
 
-cd book_data_importer
-pip install -r requirements.txt
+cd book_data_importer && pip install -r requirements.txt
 
-python import_books.py          # Gutendex → Supabase
-python scrape_descriptions.py   # optional: add book descriptions
+python import_books.py          # Gutendex API → Supabase
+python scrape_descriptions.py   # optional: add descriptions
 python book_embedding.py        # Supabase books → Pinecone
 python graph_book_importer.py   # books/authors/genres → Neo4j
 python upload_epubs_to_s3.py    # EPUBs → S3
@@ -292,20 +247,27 @@ python upload_epubs_to_s3.py    # EPUBs → S3
 
 | Symptom | Fix |
 |---------|-----|
-| Pod `ImagePullBackOff` | Run `kind load docker-image <image>:<tag>` after building; or push to a registry for remote clusters |
-| `504` on `/api/v1/recommend/combined` | First-run pipeline can take 1–2 min; Ingress is already set to 300s — wait it out |
-| Frontend "No data" / network errors | Ensure port-forward on 8080 is active; check CORS and that backend pods are healthy |
-| Grafana "No data" for app metrics | Check ServiceMonitors are applied and services have correct labels; verify the metrics sidecar is running |
-| `boto3 NoRegionError` | Set `AWS_DEFAULT_REGION` in consumer and producer environments |
+| `ImagePullBackOff` | Run `kind load docker-image <image>:latest --name <cluster>` after building |
+| `504` on `/recommend/combined` | First pipeline run takes 1–2 min — Ingress is already set to 300s; wait it out |
+| Frontend "No data" / CORS errors | Confirm port-forward on `8080` is active and healthy |
+| Grafana "No data" for app metrics | Verify ServiceMonitors are applied and metrics sidecar container is running |
+| Custom alerts not in Prometheus | Run `helm upgrade kube-prometheus-stack ...` after adding `ruleSelectorNilUsesHelmValues: false` to `prometheus-stack-values.yaml` |
+| Consumer Redis warning at startup | Expected on first boot if Redis isn't ready yet — connection retries automatically on next event |
 
 ---
 
 ## Quick-start checklist
 
-1. Prerequisites + external service accounts
-2. `git clone` → `kind create cluster` → `kubectl apply -f kubernetes/my-secrets.yaml`
-3. `kubectl apply -f kubernetes/redis.yaml` and `redis-feast.yaml`
-4. Build + `kind load` all app images; `./kubernetes/install-ingress.sh`; apply the four deployment YAMLs
-5. `kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8080:80`
-6. `cd frontend/bibliophile-ai-frontend && npm install && npm run dev` → http://localhost:5173
-7. (Optional) Monitoring, Airflow, training images, book import scripts
+```
+□ External service accounts + credentials ready
+□ kind create cluster --config kind-cluster-config.yaml
+□ kubectl apply -f kubernetes/my-secrets.yaml
+□ kubectl apply -f kubernetes/redis.yaml && redis-feast.yaml
+□ Build + kind load all service images
+□ ./kubernetes/install-ingress.sh
+□ kubectl apply -f kubernetes/user-auth-deployment.yaml (+ search, recommendation, consumer)
+□ kubectl apply -f kubernetes/recommendation-hpa.yaml
+□ kubectl port-forward ingress-nginx ... 8080:80
+□ npm install && npm run dev  →  http://localhost:5173
+□ (optional) monitoring, Airflow, training images, book import
+```
