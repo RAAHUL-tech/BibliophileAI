@@ -49,13 +49,12 @@ All candidates are re-ranked by an XGBoost LambdaRank model trained on 29 engine
 ![BibliophileAI Architecture](https://github.com/user-attachments/assets/17b1ae43-32f6-4f1e-aba8-8bfa304c6d93)
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#E3F2FD', 'primaryTextColor':'#0D47A1', 'primaryBorderColor':'#1976D2', 'lineColor':'#424242'}}}%%
 flowchart TB
     subgraph Client
         SPA["React SPA"]
     end
     subgraph Ingress
-        NGINX["NGINX\n/user · /recommend · /search"]
+        NGINX["NGINX Ingress<br/>/user · /recommend · /search"]
     end
     subgraph K8s["Kubernetes Cluster"]
         US["User Service :8000"]
@@ -64,7 +63,7 @@ flowchart TB
         CC["Clickstream Consumer"]
     end
     subgraph Data["Data Layer"]
-        PG[("Supabase\nPostgres")]
+        PG[("Supabase Postgres")]
         RD[("Redis")]
         N4J[("Neo4j")]
         PC[("Pinecone")]
@@ -72,8 +71,8 @@ flowchart TB
         S3[("AWS S3")]
         SQS["AWS SQS"]
     end
-    subgraph Training["Offline Training · Airflow"]
-        ALS["ALS"] 
+    subgraph Training["Offline Training — Airflow"]
+        ALS["ALS"]
         GR["Graph"]
         SR["SASRec"]
         POP["Popularity"]
@@ -102,17 +101,17 @@ flowchart TB
 Every `/recommend/combined` request follows a 5-stage pipeline. Cache hits skip straight to the response.
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#FFF3E0','primaryTextColor':'#E65100'}}}%%
 flowchart TB
-    A[GET /recommend/combined] --> B{Redis cache?}
-    B -->|Hit| N[Return JSON]
-    B -->|Miss| C[1 · Candidate Generation\n6 algorithms in parallel]
-    C --> D[CBR · ALS · Graph · SASRec · Popularity · LinUCB]
-    D --> E[2 · Feature Engineering\nFeast — 29 features per candidate]
-    E --> F[3 · LTR Ranking\nXGBoost LambdaRank]
-    F --> G[4 · Post-Processing\nDiversity · author cap · genre spread]
-    G --> H[5 · Cache in Redis\n1-year TTL per user]
-    H --> N --> O[React renders category carousels]
+    A["GET /recommend/combined"] --> B{"Redis cache?"}
+    B -->|Hit| N["Return JSON"]
+    B -->|Miss| C["1 · Candidate Generation<br/>6 algorithms in parallel"]
+    C --> D["CBR · ALS · Graph · SASRec · Popularity · LinUCB"]
+    D --> E["2 · Feature Engineering<br/>Feast — 29 features per candidate"]
+    E --> F["3 · LTR Ranking<br/>XGBoost LambdaRank"]
+    F --> G["4 · Post-Processing<br/>Diversity · author cap · genre spread"]
+    G --> H["5 · Cache in Redis<br/>1-year TTL per user"]
+    H --> N
+    N --> O["React renders category carousels"]
 ```
 
 ### Stage breakdown
