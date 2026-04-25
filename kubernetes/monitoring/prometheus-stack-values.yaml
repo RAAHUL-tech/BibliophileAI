@@ -11,6 +11,9 @@ prometheus:
     serviceMonitorNamespaceSelector: {}
     podMonitorSelectorNilUsesHelmValues: false
     podMonitorSelector: {}
+    ruleSelectorNilUsesHelmValues: false
+    ruleSelector: {}
+    ruleNamespaceSelector: {}
     retention: 15d
     scrapeInterval: 30s
     evaluationInterval: 30s

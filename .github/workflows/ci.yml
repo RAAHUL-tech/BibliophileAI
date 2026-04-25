@@ -1,0 +1,179 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Backend: lint + syntax check ──────────────────────────────────────────
+  lint-backend:
+    name: Backend lint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - src/user_service
+          - src/recommendation_service
+          - src/search_service
+          - src/clickstream_consumer
+          - src/metrics_sidecar
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install lint tools
+        run: pip install ruff
+
+      - name: Ruff lint — ${{ matrix.service }}
+        run: ruff check ${{ matrix.service }} --select E,F,W --ignore E501
+
+      - name: Syntax check — ${{ matrix.service }}
+        run: |
+          find ${{ matrix.service }} -name "*.py" | xargs python -m py_compile
+
+  # ── Frontend: build + lint ────────────────────────────────────────────────
+  build-frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/bibliophile-ai-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/bibliophile-ai-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript build
+        run: npm run build
+
+      - name: ESLint
+        run: npm run lint
+
+  # ── Docker: build all service images ─────────────────────────────────────
+  # context: build context directory
+  # file: Dockerfile path (only set when Dockerfile is not inside the context dir)
+  docker-build:
+    name: Docker build — ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Root-context builds (Dockerfile copies from multiple repo directories)
+          - name: recommendation-service
+            context: .
+            file: src/recommendation_service/Dockerfile
+          - name: ltr-train
+            context: .
+            file: src/model_training_service/ltr_train/Dockerfile
+          # Service-directory builds
+          - name: user-service
+            context: src/user_service
+          - name: search-service
+            context: src/search_service
+          - name: clickstream-consumer
+            context: src/clickstream_consumer
+          - name: metrics-sidecar
+            context: src/metrics_sidecar
+          - name: als-train
+            context: src/model_training_service/als_train
+          - name: sasrec-train
+            context: src/model_training_service/sasrec_train
+          - name: graph-train
+            context: src/model_training_service/graph_train
+          - name: popularity-train
+            context: src/model_training_service/popularity_train
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.name }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file || format('{0}/Dockerfile', matrix.context) }}
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Push to Docker Hub on merge to main ──────────────────────────────────
+  docker-push:
+    name: Push images — ${{ matrix.name }}
+    needs: [lint-backend, build-frontend, docker-build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Root-context builds
+          - name: recommendation-service
+            context: .
+            file: src/recommendation_service/Dockerfile
+            image: rahulkrish28/recommendation-service
+          - name: ltr-train
+            context: .
+            file: src/model_training_service/ltr_train/Dockerfile
+            image: rahulkrish28/ltr-train
+          # Service-directory builds
+          - name: user-service
+            context: src/user_service
+            image: rahulkrish28/user-auth-service
+          - name: search-service
+            context: src/search_service
+            image: rahulkrish28/search-service
+          - name: clickstream-consumer
+            context: src/clickstream_consumer
+            image: rahulkrish28/clickstream-consumer
+          - name: metrics-sidecar
+            context: src/metrics_sidecar
+            image: rahulkrish28/metrics-sidecar
+          - name: als-train
+            context: src/model_training_service/als_train
+            image: rahulkrish28/als-train
+          - name: sasrec-train
+            context: src/model_training_service/sasrec_train
+            image: rahulkrish28/sasrec-train
+          - name: graph-train
+            context: src/model_training_service/graph_train
+            image: rahulkrish28/graph-train
+          - name: popularity-train
+            context: src/model_training_service/popularity_train
+            image: rahulkrish28/popularity-train
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.name }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file || format('{0}/Dockerfile', matrix.context) }}
+          push: true
+          tags: ${{ matrix.image }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

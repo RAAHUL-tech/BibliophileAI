@@ -1,0 +1,138 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: bibliophile-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: bibliophile.latency
+      rules:
+        - alert: RecommendationP95LatencyHigh
+          expr: recommendation_duration_p95_seconds > 180
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Recommendation P95 latency above 3 minutes"
+            description: >
+              P95 pipeline latency is {{ $value | humanizeDuration }}.
+              Users hitting cache misses are waiting >3 min for recommendations.
+
+        - alert: RecommendationP99LatencyCritical
+          expr: recommendation_duration_p99_seconds > 270
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Recommendation P99 latency above 4.5 minutes"
+            description: >
+              P99 pipeline latency is {{ $value | humanizeDuration }}.
+              Requests are approaching the 300s Ingress timeout.
+
+    - name: bibliophile.cache
+      rules:
+        - alert: RecommendationCacheHitRateLow
+          expr: >
+            recommendation_cache_hits_total
+            / clamp_min(recommendation_cache_hits_total + recommendation_cache_misses_total, 1)
+            < 0.2
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Recommendation cache hit rate below 20%"
+            description: >
+              Cache hit rate is {{ $value | humanizePercentage }}.
+              Redis may be unavailable, flushed, or users are new with no cached results.
+
+    - name: bibliophile.availability
+      rules:
+        - alert: RecommendationServiceDown
+          expr: metrics_sidecar_up{service="recommendation"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Recommendation service is down"
+            description: "The recommendation service metrics sidecar has been unreachable for >2m."
+
+        - alert: UserServiceDown
+          expr: metrics_sidecar_up{service="user-auth"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "User service is down"
+            description: "The user/auth service metrics sidecar has been unreachable for >2m."
+
+        - alert: ClickstreamConsumerDown
+          expr: metrics_sidecar_up{service="clickstream-consumer"} == 0
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Clickstream consumer is down"
+            description: >
+              The clickstream consumer sidecar has been unreachable for >2m.
+              User events will not be persisted to MongoDB.
+
+    - name: bibliophile.errors
+      rules:
+        - alert: HighHTTPErrorRate
+          expr: >
+            sum(app_http_requests_total{status_class="5xx"})
+            / clamp_min(sum(app_http_requests_total), 1)
+            > 0.1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "HTTP 5xx error rate above 10%"
+            description: >
+              5xx errors represent {{ $value | humanizePercentage }} of all requests
+              over the last 5 minutes.
+
+    - name: bibliophile.pods
+      rules:
+        - alert: PodCrashLooping
+          expr: >
+            kube_pod_container_status_waiting_reason{
+              reason="CrashLoopBackOff",
+              namespace="default"
+            } > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Pod {{ $labels.pod }} is crash-looping"
+            description: >
+              Container {{ $labels.container }} in pod {{ $labels.pod }}
+              is in CrashLoopBackOff. Check logs: kubectl logs {{ $labels.pod }} -c {{ $labels.container }}
+
+        - alert: PodNotReady
+          expr: >
+            kube_pod_status_ready{
+              condition="false",
+              namespace="default"
+            } > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.pod }} not ready for >5m"
+            description: "Pod {{ $labels.pod }} has been in a non-ready state for more than 5 minutes."
+
+    - name: bibliophile.engagement
+      rules:
+        - alert: NDCGDegraded
+          expr: recommendation_ndcg_at_10 < 0.3
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "NDCG@10 dropped below 0.3"
+            description: >
+              Recommendation ranking quality (NDCG@10) is {{ $value }}.
+              Users are engaging with books at low rank positions — check if LTR model needs retraining.

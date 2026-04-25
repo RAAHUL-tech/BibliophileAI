@@ -5,6 +5,7 @@ features, train XGBoost LambdaRank (rank:ndcg), and upload model to S3.
 import os
 import sys
 import io
+import json
 import logging
 import tempfile
 from datetime import datetime, timedelta
@@ -175,9 +176,51 @@ def load_features_feast(entity_df: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame()
 
 
+def _ndcg_at_k(y_true: np.ndarray, y_pred: np.ndarray, k: int) -> float:
+    """Compute NDCG@k for a single query group."""
+    order = np.argsort(y_pred)[::-1][:k]
+    gains = y_true[order].astype(float)
+    discounts = np.log2(np.arange(2, len(gains) + 2))
+    dcg = np.sum((2 ** gains - 1) / discounts)
+    ideal = np.sort(y_true)[::-1][:k].astype(float)
+    idcg = np.sum((2 ** ideal - 1) / np.log2(np.arange(2, len(ideal) + 2)))
+    return float(dcg / idcg) if idcg > 0 else 0.0
+
+
+def _compute_offline_metrics(
+    bst: xgb.Booster,
+    va: pd.DataFrame,
+) -> dict:
+    """
+    Score the holdout set and compute per-query NDCG@3, NDCG@5, NDCG@10,
+    then return the macro-averaged values across all queries.
+    """
+    X_va = va[FEATURE_COLS].fillna(0).astype(np.float32)
+    dval = xgb.DMatrix(X_va, feature_names=FEATURE_COLS)
+    preds = bst.predict(dval)
+    va = va.copy()
+    va["_pred"] = preds
+
+    ndcg3, ndcg5, ndcg10 = [], [], []
+    for _, grp in va.groupby("user_id", sort=False):
+        yt = grp["relevance"].values
+        yp = grp["_pred"].values
+        ndcg3.append(_ndcg_at_k(yt, yp, 3))
+        ndcg5.append(_ndcg_at_k(yt, yp, 5))
+        ndcg10.append(_ndcg_at_k(yt, yp, 10))
+
+    return {
+        "ndcg_at_3":  round(float(np.mean(ndcg3)),  4),
+        "ndcg_at_5":  round(float(np.mean(ndcg5)),  4),
+        "ndcg_at_10": round(float(np.mean(ndcg10)), 4),
+        "num_queries": len(ndcg10),
+        "num_samples": len(va),
+    }
+
+
 @ray.remote
 def train_and_upload_s3(train_df: pd.DataFrame) -> None:
-    """Train XGBoost rank:ndcg and upload model to S3."""
+    """Train XGBoost rank:ndcg, evaluate on holdout, and upload model + metrics to S3."""
     prefix = LTR_S3_PREFIX
     bucket = S3_URI.replace("s3://", "").split("/")[0] if S3_URI.startswith("s3://") else S3_URI.split("/")[0]
     if not bucket or train_df is None or train_df.empty:
@@ -219,6 +262,7 @@ def train_and_upload_s3(train_df: pd.DataFrame) -> None:
         "lambda": 1.0,
         "tree_method": "hist",
     }
+    evals_result = {}
     bst = xgb.train(
         params,
         dtrain,
@@ -226,24 +270,51 @@ def train_and_upload_s3(train_df: pd.DataFrame) -> None:
         evals=[(dtrain, "train"), (dval, "val")],
         early_stopping_rounds=50,
         verbose_eval=50,
+        evals_result=evals_result,
     )
-    key = f"{prefix}/ltr_xgb_latest.json"
+
+    # Offline evaluation on holdout
+    eval_metrics = _compute_offline_metrics(bst, va)
+    eval_metrics["best_iteration"] = int(bst.best_iteration)
+    eval_metrics["best_val_ndcg_at_10"] = round(
+        float(evals_result.get("val", {}).get("ndcg@10", [0])[-1]), 4
+    )
+    eval_metrics["train_ndcg_at_10"] = round(
+        float(evals_result.get("train", {}).get("ndcg@10", [0])[-1]), 4
+    )
+    eval_metrics["trained_at"] = datetime.utcnow().isoformat()
+    eval_metrics["train_users"] = len(train_uids)
+    eval_metrics["val_users"] = len(val_uids)
+    logging.info("Offline eval metrics: %s", eval_metrics)
+
+    s3 = boto3.client(
+        "s3",
+        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
+    )
+
+    # Upload model
     fd, tmp_path = tempfile.mkstemp(suffix=".json")
     try:
         os.close(fd)
         bst.save_model(tmp_path)
         with open(tmp_path, "rb") as f:
             body = f.read()
-        client = boto3.client(
-            "s3",
-            aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
-            aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
-        )
-        client.put_object(Bucket=bucket, Key=key, Body=body, ContentType="application/json")
-        logging.info("Saved LTR model to s3://%s/%s", bucket, key)
+        s3.put_object(Bucket=bucket, Key=f"{prefix}/ltr_xgb_latest.json",
+                      Body=body, ContentType="application/json")
+        logging.info("Saved LTR model to s3://%s/%s/ltr_xgb_latest.json", bucket, prefix)
     finally:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
+
+    # Upload eval metrics — one timestamped file per run + overwrite latest
+    metrics_body = json.dumps(eval_metrics, indent=2).encode()
+    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    s3.put_object(Bucket=bucket, Key=f"{prefix}/eval_metrics_{ts}.json",
+                  Body=metrics_body, ContentType="application/json")
+    s3.put_object(Bucket=bucket, Key=f"{prefix}/eval_metrics_latest.json",
+                  Body=metrics_body, ContentType="application/json")
+    logging.info("Saved eval metrics to s3://%s/%s/eval_metrics_latest.json", bucket, prefix)
 
 
 def main():
