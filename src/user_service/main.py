@@ -26,7 +26,7 @@ from supabase_client import (
     get_user_profile_by_id
 )
 from neo4j_client import (create_user_follows_users, delete_user_follows_user, create_user_read_book, create_user_bookmarked_book, update_user_profile_fields,
-                          delete_user_bookmarked_book, create_user_rated_book, create_user_preferences, patch_user_preferences, neo4j_suggest_followers, 
+                          delete_user_bookmarked_book, create_user_rated_book, create_user_preferences, patch_user_preferences, neo4j_suggest_followers,
                           neo4j_get_followers, neo4j_get_following, neo4j_are_users_mutually_following)
 import httpx
 from user_agents import parse
@@ -146,14 +146,14 @@ async def register(request: Request, user: UserCreate):
     hashed_password = pwd_context.hash(safe_password)
     user_data = {"username": user.username, "email": user.email, "hashed_password": hashed_password}
     new_username = await create_user(user_data)
-    created_user = await get_user_by_username(new_username)  
+    created_user = await get_user_by_username(new_username)
     access_token = create_access_token(data={"sub": new_username})
     user_agent = request.headers.get("user-agent", "")
     ip_address = request.client.host if request.client else ""
     ua = parse(user_agent)
     device = "mobile" if ua.is_mobile else "tablet" if ua.is_tablet else "desktop"
     session_id = await create_session(
-        user_id=created_user["id"],  
+        user_id=created_user["id"],
         device=device,
         ip_address=ip_address,
         user_agent=user_agent,
@@ -161,7 +161,7 @@ async def register(request: Request, user: UserCreate):
     )
     event = {
         "event_id": str(uuid.uuid4()),
-        "user_id": created_user["id"],  
+        "user_id": created_user["id"],
         "item_id": None,
         "event_type": "register",
         "timestamp": datetime.utcnow().isoformat(),
@@ -169,7 +169,7 @@ async def register(request: Request, user: UserCreate):
         "duration": None,
         "metadata": {}
     }
-    group_id = f"user_{created_user['id']}"  
+    group_id = f"user_{created_user['id']}"
     send_click_event(event, group_id)
     return {"access_token": access_token, "token_type": "bearer", "session_id": session_id}
 
@@ -305,7 +305,7 @@ async def google_login(request: Request, token: GoogleToken):
 
 @app.post("/api/v1/user/preferences")
 async def save_preferences(
-    prefs_in: UserPreferences, 
+    prefs_in: UserPreferences,
     current_user=Depends(get_current_user)
 ) -> Dict:
     """
@@ -313,7 +313,6 @@ async def save_preferences(
     Updates both user_preferences and users tables in Supabase.
     """
     user_id = current_user["id"]
-    
     try:
         # Update user_preferences table with genres and authors
         preferences_result = await create_preferences(
@@ -321,14 +320,12 @@ async def save_preferences(
             genres=prefs_in.genres,
             authors=prefs_in.authors
         )
-        
         if not preferences_result:
             logger.error(f"Failed to save preferences for user {user_id}")
             raise HTTPException(
                 status_code=500,
                 detail="Failed to save preferences"
-            )
-            
+            )    
         # Update users table with age and pincode (as part of profile)
         await update_user_profile(
             user_id=user_id,
@@ -343,7 +340,7 @@ async def save_preferences(
             logger.warning(f"Error creating embedding for user {user_id}: {e}")
             # Don't fail the entire request if embedding creation fails
         session_info = await get_current_active_session_id(user_id)
-        session_id = session_info["session_id"] if session_info else None  
+        session_id = session_info["session_id"] if session_info else None
         event = {
             "event_id": str(uuid.uuid4()),
             "user_id": user_id,
@@ -363,7 +360,7 @@ async def save_preferences(
         send_click_event(event, group_id)
         create_user_preferences(
             user_id=user_id,
-            username=current_user["username"], 
+            username=current_user["username"],
             genres=prefs_in.genres,
             authors=prefs_in.authors,
             age=prefs_in.age,
@@ -385,7 +382,6 @@ async def save_preferences(
             status_code=400,
             detail="Invalid preferences data"
         )
-    
 
 @app.get("/api/v1/user/preferences")
 async def get_preferences(current_user=Depends(get_current_user)):
@@ -401,7 +397,6 @@ async def get_preferences(current_user=Depends(get_current_user)):
             "genres": [],
             "authors": []
         }
-    
     # Extract arrays directly - Supabase returns proper array types
     genres_list = prefs.get("genres", []) or []
     authors_list = prefs.get("authors", []) or []

@@ -13,6 +13,7 @@ import logging
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 from app_metrics import record_event, record_engagement_at_position, start_metrics_writer
+import redis as _redis_lib
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -42,10 +43,6 @@ def get_mongo_client():
 mongo = get_mongo_client()
 collection = mongo['click_stream']['events']
 
-# Redis: optional — used to look up recommendation positions for NDCG tracking.
-# Connection is lazy: attempted on first use and retried after failures so a
-# startup race (consumer starts before Redis is ready) doesn't permanently disable it.
-import redis as _redis_lib
 
 _REDIS_URL = os.environ.get("REDIS_URL")
 _redis_client = None
