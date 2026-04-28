@@ -42,6 +42,9 @@ kubectl label configmap grafana-dashboard-bibliophile-app -n "$MONITORING_NS" gr
 echo "Applying ServiceMonitors (so Prometheus scrapes app metrics from sidecars)..."
 kubectl apply -f "$SCRIPT_DIR/servicemonitors/"
 
+echo "Applying custom alerting rules..."
+kubectl apply -f "$SCRIPT_DIR/alerting-rules.yaml"
+
 echo ""
 echo "Monitoring stack is installed."
 echo "Access Grafana (default admin/admin):"
